@@ -1,0 +1,8 @@
+{
+  "schema_version": "deep3d.agent-goal/1",
+  "set_parameters_mm": {
+    "thickness_mm": 16,
+    "bolt_circle_diameter_mm": 80
+  },
+  "preserve_other_parameters": true
+}

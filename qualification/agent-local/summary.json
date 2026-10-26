@@ -1,0 +1,136 @@
+{
+  "schema_version": "deep3d.agent-smoke/1",
+  "created_at": "2026-10-26T20:50:53.121121+00:00",
+  "local_tool_loop": "pass",
+  "live_llm": {
+    "status": "blocked",
+    "code": "PROVIDER_AUTH",
+    "model_requests": 1,
+    "requested_model": "claude-opus-4-6",
+    "run_state": "waiting_provider",
+    "reason": "Configured HTTPS service rejected authentication/access; no model tools ran"
+  },
+  "industrial_qualification": "not_established",
+  "milestones_complete": [],
+  "windows": {
+    "rust_workspace_tests": {
+      "passed": 33,
+      "log_sha256": "sha256:19228baf6481d1edc02dad945b274cc36d4e554f86b8964ac67f37ab9eafdebf"
+    },
+    "python_full_suite": {
+      "passed": 199,
+      "log_sha256": "sha256:54955ecc2de39bf97f899f1b06a6047990fdf7b61d089ad0c9bf64ea5feddd76"
+    },
+    "scripted_model_real_cad": {
+      "live_llm": false,
+      "model_requests": 3,
+      "geometry_jobs": 1,
+      "history_count": 2,
+      "completed_resume_idempotent": true,
+      "revision_id": "a46e08d8-755d-471c-962b-7e70ad16d8fd",
+      "materialization": "sha256:c30b3ce5ab9ae75948a5b1345b7d0ac548b388d96a86c906ede49372b511c97e",
+      "step_sha256": "sha256:ad450947da05b5b46502882253cd6549ddd7c197104a262fabd8452377db5cd4",
+      "parameters_mm": {
+        "thickness_mm": 16.0,
+        "bolt_circle_diameter_mm": 80.0
+      },
+      "geometry_evidence": {
+        "verify-brep.json": {
+          "sha256": "sha256:8b066a13a9136abe89bd42b4490b484c7566ebdb140a33d35a42d351c48460e2",
+          "input_artifact_sha256": "sha256:051620dae0f1daaa788c3bc76ff143798ea8ec2d7cdaf91b254f3bca6c748f51"
+        },
+        "verify-step.json": {
+          "sha256": "sha256:b7860bb0d1947a5324eb36bc9c5c679948163dc72dd9c631458874d6cf2f601c",
+          "input_artifact_sha256": "sha256:ad450947da05b5b46502882253cd6549ddd7c197104a262fabd8452377db5cd4"
+        }
+      },
+      "native_project_sha256": "sha256:f289c707388a6ed1f34a65c7724698c26880c114244a420b4c3d2a729c29e718"
+    }
+  },
+  "linux": {
+    "rust_domain_storage_tests": {
+      "passed": 31,
+      "log_sha256": "sha256:825e57b9f75659b8aab1aa70c8eb564b9bb98f80b0bcc58baab0276abdcb8538"
+    },
+    "python_agent_suite": {
+      "passed": 77,
+      "log_sha256": "sha256:f070eb026c4299a4a215395ad0ff0beacfd4a1f94ec226d2dc888012c0045dc7"
+    },
+    "scripted_model_real_cad": {
+      "live_llm": false,
+      "model_requests": 3,
+      "geometry_jobs": 1,
+      "history_count": 2,
+      "completed_resume_idempotent": true,
+      "revision_id": "c9200620-f93d-477c-87e5-8483a2ff8450",
+      "materialization": "sha256:d7724fead8cc0d814a5dd32e6e20488ac4d8a5d6f4238f30f40ed769087beb91",
+      "step_sha256": "sha256:10290e7faa27eb00bbd40237c83f11280ddc34099aaa695e5390972da1ad83ec",
+      "parameters_mm": {
+        "thickness_mm": 16.0,
+        "bolt_circle_diameter_mm": 80.0
+      },
+      "geometry_evidence": {
+        "verify-brep.json": {
+          "sha256": "sha256:a11c4f9af48203c64a5453d47d621907aee60d38750a43f82b43a3b1744e9250",
+          "input_artifact_sha256": "sha256:fa372cf1656a55f348a036eaf2e3d14722dac87b9811b1674d47451751d84f44"
+        },
+        "verify-step.json": {
+          "sha256": "sha256:5bbb5df30eb7043ad135f7b1c5c914526ad067a817dc24cda2321b5a1f1ca14b",
+          "input_artifact_sha256": "sha256:10290e7faa27eb00bbd40237c83f11280ddc34099aaa695e5390972da1ad83ec"
+        }
+      },
+      "native_project_sha256": "sha256:db4c89b6de9f2d0d4dd39586eceb65e2dd8827f471d1a348cf13f90d17470742"
+    }
+  },
+  "source_digests": {
+    "Cargo.lock": "sha256:7ee3a31f4c0dab1251cdd34de3cbd9b96ca82abd6cd00e5e1e11a1ecb4841253",
+    "crates/core-domain/examples/emit_plan.rs": "sha256:b7e75dd8e5de51cb1ee30f70f9bc6870dce48922d410ab0b41e76dfbd99dc2cd",
+    "crates/core-domain/src/compiler.rs": "sha256:541779527a42e001cee26b75d1d5e1642a93d0557ac404bae8f54dad68126b2a",
+    "crates/core-domain/src/lib.rs": "sha256:0fb8890df778049afaa4d75469335e2a832e2cfc0ed248542f59ce0c6b7496fe",
+    "crates/core-domain/src/model.rs": "sha256:462d921f6ec6395dd18c2a02d15ee62a4fc704e766a2e332c130f1330d084352",
+    "crates/core-domain/src/transaction.rs": "sha256:f3bbf66e3b0efa5bd24c58c4cf4b64361afc7cee5c943916dc82bce962b3ead3",
+    "crates/core-domain/src/u64_string.rs": "sha256:c2fc03848f4b24422f37309ec825d915452612800ecdd80f0ebb9d313b8637b1",
+    "crates/core-domain/src/validation.rs": "sha256:426e2a6d60bce2360604f24010d73d411e8eacbf9f5b78513961d0cdc9e718d9",
+    "crates/core-domain/tests/engineering.rs": "sha256:36936fcacf109571a53be7c15829c3d92d38593133e806234be38f2b9405a529",
+    "crates/core-storage/src/candidate.rs": "sha256:cc250d641e25798aca78a399115a70bf59f80e5d349b68fa20d59b023b2519fe",
+    "crates/core-storage/src/candidate_tests.rs": "sha256:be496bce3df276a5c9b0facf01d90947a416ccff111d6498fb46e36d85d08ced",
+    "crates/core-storage/src/lib.rs": "sha256:9c31033299dcbc9cbd588f965d0ed2ab6d22a994be54a004aeb703b85e69be4a",
+    "crates/core-storage/src/tests.rs": "sha256:afa510095f8725ce17c150285d924b0a35a9b2556382201e89c72af85550e2e7",
+    "crates/deep3d-cli/src/bridge.rs": "sha256:afd0b8e888f2472ace839e0d26c3f5df9fd36e7ee060596eca3c9022848e3ea8",
+    "crates/deep3d-cli/src/main.rs": "sha256:4a620f4240ba802c1f422bae8503313e663ec436a203035f294da54ad42d220c",
+    "crates/deep3d-cli/tests/workflow.rs": "sha256:8da7040fd1fc4ddeabbb79d82568812be1a71a3933047161929d8ca838e06fb3",
+    "fixtures/agent/thicker-flange.json": "sha256:1289b94c52e8126b5b879ad2cb545194ff201c4b73532f834fe644b605e55158",
+    "pyproject.toml": "sha256:2f45646773a04f3f03600fcd32e18b120156bbf92778c617d46b48c1c0d64106",
+    "runtime/agent/src/deep3d_agent/__init__.py": "sha256:0ea410dfc809e5bb60073bb7e551c6f38569293a075093f6b08f1379627c95e5",
+    "runtime/agent/src/deep3d_agent/cli.py": "sha256:fbacd627f633a35d8444297978d0c8e72e3af251ec15cf9f5870ba74b57c555d",
+    "runtime/agent/src/deep3d_agent/provider.py": "sha256:142b4bf05ca6c0c71f8c255b41fa9c924cf6538e45e3c4d34b622395332f68f1",
+    "runtime/agent/src/deep3d_agent/runtime.py": "sha256:bf42e4790f625cbdcd5a13dab35c503b35ad5095d2a14e3a5db3d16a3f59e130",
+    "scripts/demo_agent.py": "sha256:3863b249d84dbd18fdb6adb2289d03ce4c6db9eeee0b1aefdd9eb99601e17c16",
+    "scripts/record_agent.py": "sha256:0c201afd295268f7d847aacdcb57a9c3b84842ade84189da4cfeabdfaa22affa",
+    "specs/agent-goal.schema.json": "sha256:50cf570e33522bcc23518f66006bf4acbcc4eb36169056e560182d7d5192bb5e",
+    "tests/test_agent_provider.py": "sha256:127a9f677e29f27cc18fb75f3c8b703aff9709c93698d1fa72dc2290f15a3393",
+    "tests/test_agent_runtime.py": "sha256:2b8a18410905ea2496099929d6a42f20d7af4731c4615ea6cbf160f142c71d0b",
+    "tests/test_contracts.py": "sha256:b1a1f91c629a95eb1dc047c1e08cd89592693057c9a9000e9cc206adc16eec90",
+    "tests/test_kernel.py": "sha256:be6d952a999020c97751ab9abe4106cb82f72d8ecef3bcd352271e9322e4025b",
+    "tests/test_project_worker.py": "sha256:c5c61714821d59566626bc7cf48d666161e7a6789c99121535a9b1ebbad31b08",
+    "tests/test_runner.py": "sha256:25b0081823de82bd86b4cb6a41689ecc7c90be1128ca27c4787c051d339e5a21",
+    "tests/test_verifier.py": "sha256:757fadfd2f4b7c66e9184498670cb75cfb669285a111182ec93429f24ee991b8",
+    "uv.lock": "sha256:3e3d7179398aaf5ba557f4a7bc2678261b3509757124244b792639a0debc981b",
+    "workers/cad/src/deep3d_cad/__init__.py": "sha256:4b52c33b2aa741c9d9929271f5bb4da172aa0b0dd88376f03b408de92b3ee631",
+    "workers/cad/src/deep3d_cad/__main__.py": "sha256:935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+    "workers/cad/src/deep3d_cad/cli.py": "sha256:7ff8f589befc6ec9133a9ce4220236d83c431064ea511daf9aa072fce88a66ab",
+    "workers/cad/src/deep3d_cad/contracts.py": "sha256:51018a0d5daefcd77b533ae1b225e77687bd15c9a5b649c5e2bda4dac28a0549",
+    "workers/cad/src/deep3d_cad/jsonio.py": "sha256:b9e7dbd113b090eca5fdf3f12758bc1b2206a6250487187ba3b897bbfdc6b2ea",
+    "workers/cad/src/deep3d_cad/kernel.py": "sha256:bb8692742f7346f4680602b2cd5a2ff7aa90d87de95a04050b0f68ccbd1d118e",
+    "workers/cad/src/deep3d_cad/project_worker.py": "sha256:d515e389d231c34136c290cf244189a17f903d90f6446cc367e99629c3d84faa",
+    "workers/cad/src/deep3d_cad/runner.py": "sha256:247ae2094dc9635ad5a12f4fcc563db49165e72978e9a9c704f47e9668dd8e10",
+    "workers/cad/src/deep3d_cad/verifier.py": "sha256:ce387122106e1ea4dc48a956e7acfda94ba058b2b285873da95f0fff09ef0e84",
+    "workers/cad/src/deep3d_cad/worker.py": "sha256:e57d9114fbde10f7f208ba4e3f6a293ad4f240f45a98659da2a24366338643ce"
+  },
+  "limitations": [
+    "local synchronous process with durable checkpoints",
+    "typed independent goal required; five flange length parameters only",
+    "no PostgreSQL/Temporal/cloud publication/industrial qualification",
+    "live model success and provider billing not established"
+  ]
+}

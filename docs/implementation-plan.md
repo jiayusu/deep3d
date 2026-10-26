@@ -4,6 +4,8 @@
 
 2026-10-27 更新：[Rust 工程内核](rust-engineering-kernel.md)已覆盖 M1-01/02 的首批类型与事务，以及 M1-06 的本地原生包保存/重开编辑。物化与历史已有自包含文件实现；M1-04 的 PostgreSQL、增量 I/O、M1-07 的真实增量执行及完整操作集尚待完成。
 
+同日已增加 [本地 Agent 闭环](agent-loop.md)：候选隔离、验证后 CAS 接纳、受控模型工具调用和检查点恢复。这提前验证 M2/M3 的一部分接口，不能据此宣布数据库发布、Temporal 编排或云端持久运行完成。
+
 先读[开发基线](development-baseline.md)、[运行时协议](runtime-protocol.md)与[工业验收](industrial-qualification.md)。M0～M2 证明 CAD 与状态基础，M3～M4 建立工程工作流，M5～M6 才进入限定范围的工业资格。里程碑以证据通过为准，不以代码行数、工具次数或运行时长代替完成。
 
 ## 1. 关键路径及并行边界

@@ -901,5 +901,9 @@ impl ProjectStore {
     }
 }
 
+mod candidate;
+
+#[cfg(test)]
+mod candidate_tests;
 #[cfg(test)]
 mod tests;

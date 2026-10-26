@@ -42,7 +42,7 @@ Windows 的 `scripts/cargo.ps1` 自动查找 Visual Studio 开发环境；Linux 
 | --- | --- |
 | `core-domain` | 稳定 UUID、Scene 树、带单位参数、表达式引用、Feature DAG、事务候选、校验、拓扑编译、失效闭包 |
 | `core-storage` | `.deep3d` 包、不可变 spec/transaction/materialization、内容哈希、版本历史、写锁、CAS、原子替换 |
-| `deep3d-cli` | 创建/重开/编辑/事务/历史/计划/求值/导出；受信任 Python 子进程桥接 |
+| `deep3d-cli` | 创建/重开/编辑/事务/历史/计划/求值/候选/接纳/导出；受信任 Python 子进程桥接 |
 | Python `project_worker` | 白名单 Feature 图求值、真实 OCCT 轮廓/拉伸/切除、逐 Feature BREP、独立验证 |
 
 当前操作集是 `profile.circle@1`、`solid.extrude@1`、`solid.cut@1`。长度统一 mm，角度 rad，右手 Z-up；轮廓位于 XY 基准，沿 Z 拉伸。参数表达式支持带单位常量及参数引用乘无量纲系数。完整草图求解、任意变换、圆角和装配仍在后续范围。
@@ -58,6 +58,8 @@ Parameter、Feature、SceneNode 和 Project 均有独立 UUID；名称或层级�
 `apply --transaction FILE` 接受显式 `base_revision`、字符串 `expected_generation`、事务 ID、消息和命令列表。保存时锁定项目，重新读取并比较 **revision + generation**。同事务 ID、同规范内容的成功重试返回原版本；同 ID 异内容拒绝。
 
 `edit` 是参数赋值便利入口。省略版本条件时，CLI 先读取当前 head，再以该 token 提交 CAS；有既定输入快照的调用方应同时传 `--expected-revision` 与 `--expected-generation`。幂等重试优先保存并重发完整 `apply` 事务；仅复用 `edit --transaction-id` 而改变默认读取版本，可能产生摘要冲突。
+
+`candidate --project SOURCE --transaction FILE --out CANDIDATE` 从固定 head 生成独立单事务候选，不修改源包；`adopt --project SOURCE --candidate CANDIDATE --expected-revision UUID --expected-generation N --materialization HASH` 仅在完整物化验证和源版本 CAS 通过后原子接纳。源工程后来附加的证据会合并保留。相同候选/物化的重复接纳返回原接受版本，即使 head 后来前进；不会回退 head。此接口用于 [Agent 闭环](agent-loop.md)，不改变直接 `apply/edit` 保存规范后再求值的语义。
 
 编译采用确定性拓扑顺序，生成已解析参数与显式端口的 ExecutionPlan。`dirty_features` 提供保守依赖闭包，几何无关的重命名不标记几何失效，精度策略变化使所有输出失效。当前 Worker 仍全量重算，未宣称具备增量执行或共享缓存。
 

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://deep3d.dev/specs/agent-goal.schema.json",
+  "title": "Independent local flange Agent goal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "set_parameters_mm", "preserve_other_parameters"],
+  "properties": {
+    "schema_version": {"const": "deep3d.agent-goal/1"},
+    "preserve_other_parameters": {"const": true},
+    "set_parameters_mm": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "outer_diameter_mm": {"type": "number"},
+        "thickness_mm": {"type": "number"},
+        "center_hole_diameter_mm": {"type": "number"},
+        "bolt_hole_diameter_mm": {"type": "number"},
+        "bolt_circle_diameter_mm": {"type": "number"}
+      }
+    }
+  }
+}

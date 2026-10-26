@@ -273,7 +273,9 @@ fn unknown_schema_and_oversized_container_or_metadata_are_rejected() {
 
 // Protocol fixtures only: Rust does not perform geometry or pretend these
 // bytes are CAD evidence. Real OCCT evidence is tested by the CLI integration.
-fn metadata_materialization(snapshot: &Snapshot) -> (Materialization, BTreeMap<String, Vec<u8>>) {
+pub(super) fn metadata_materialization(
+    snapshot: &Snapshot,
+) -> (Materialization, BTreeMap<String, Vec<u8>>) {
     let plan = snapshot.project.compile(snapshot.revision.id).unwrap();
     let plan_bytes = canonical_bytes(&plan).unwrap();
     let plan_hash = digest_bytes(&plan_bytes);

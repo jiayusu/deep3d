@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Parser, Subcommand};
 use core_domain::{canonical_bytes, Command, CoreError, Project, Result, ScalarValue, Transaction};
-use core_storage::{ProjectStore, Snapshot};
+use core_storage::{HeadToken, ProjectStore, Snapshot};
 use serde::de::DeserializeOwned;
 use serde_json::{json, Value};
 use uuid::Uuid;
@@ -59,6 +59,28 @@ enum Action {
         project: PathBuf,
         #[arg(long)]
         transaction: PathBuf,
+    },
+    /// Prepare one unpublished transaction for independent geometry evaluation.
+    Candidate {
+        #[arg(long)]
+        project: PathBuf,
+        #[arg(long)]
+        transaction: PathBuf,
+        #[arg(long)]
+        out: PathBuf,
+    },
+    /// Publish a verified candidate only while its original branch token matches.
+    Adopt {
+        #[arg(long)]
+        project: PathBuf,
+        #[arg(long)]
+        candidate: PathBuf,
+        #[arg(long)]
+        expected_revision: Uuid,
+        #[arg(long)]
+        expected_generation: u64,
+        #[arg(long)]
+        materialization: String,
     },
     History {
         #[arg(long)]
@@ -211,6 +233,28 @@ fn execute(action: Action) -> Result<Value> {
         } => json_value(
             ProjectStore::open(project)?.commit(&read_json::<Transaction>(&transaction)?)?,
         ),
+        Action::Candidate {
+            project,
+            transaction,
+            out,
+        } => json_value(
+            ProjectStore::open(project)?
+                .prepare_candidate(&read_json::<Transaction>(&transaction)?, out)?,
+        ),
+        Action::Adopt {
+            project,
+            candidate,
+            expected_revision,
+            expected_generation,
+            materialization,
+        } => json_value(ProjectStore::open(project)?.adopt_candidate(
+            candidate,
+            HeadToken {
+                revision_id: expected_revision,
+                generation: expected_generation,
+            },
+            &materialization,
+        )?),
         Action::History { project } => json_value(ProjectStore::open(project)?.history()?),
         Action::Plan {
             project,
