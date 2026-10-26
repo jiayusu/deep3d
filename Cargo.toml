@@ -1,0 +1,21 @@
+[workspace]
+members = ["crates/core-domain", "crates/core-storage", "crates/deep3d-cli"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+
+[workspace.dependencies]
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = { version = "=1.0.145", features = ["float_roundtrip"] }
+serde_jcs = "=0.1.0"
+uuid = { version = "=1.18.1", features = ["v4", "serde"] }
+sha2 = "=0.10.9"
+thiserror = "=2.0.17"
+tempfile = "=3.23.0"
+fs2 = "=0.4.3"
+zip = { version = "=4.6.1", default-features = false, features = ["deflate"] }
+clap = { version = "=4.5.50", features = ["derive"] }
+wait-timeout = "=0.2.1"

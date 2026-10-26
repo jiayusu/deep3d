@@ -1,0 +1,193 @@
+{
+  "schema_version": "deep3d.kernel-smoke/1",
+  "created_at": "2026-10-26T20:18:51.237263+00:00",
+  "status": "pass",
+  "scope": "local_single_branch_engineering_kernel_and_analytic_flange",
+  "milestones_complete": [],
+  "industrial_qualification": "not_established",
+  "windows": {
+    "rust_tests": {
+      "passed": 23,
+      "log_sha256": "sha256:5b03e25e0809cfb9494c0425eff4e21ce88373fdaa6c45d898fcc4eceb032b02"
+    },
+    "python_tests": {
+      "passed": 122,
+      "log_sha256": "sha256:0b4aca5d90c21a7a0f07a6006827f5676c4f73983be331e29642db8f7e58d644"
+    },
+    "native_project_demo": {
+      "schema_version": "deep3d.native-project-demo/1",
+      "status": "pass",
+      "scope": "local_flange_engineering_kernel",
+      "project_id": "e56082a6-3687-4b7a-9027-75cb924c7bb9",
+      "project": "flange.deep3d",
+      "project_sha256": "sha256:477159047a6c03332ed2a9f8cfb133ded364d9dbcd7e3cfe85f34fcfa01615c3",
+      "history": [
+        {
+          "id": "09854425-9987-4bec-a577-c8ee91458eb9",
+          "message": "Initial project",
+          "parent": null,
+          "spec_hash": "sha256:01682aaf5d032f4e005a3152890bc23caf4e303cf3cdf7ac679f5bfefcd5e781",
+          "transaction_hash": null,
+          "transaction_id": null
+        },
+        {
+          "id": "452c3c87-26e0-42b1-a22d-ab50d913e6ce",
+          "message": "Increase thickness and bolt spacing",
+          "parent": "09854425-9987-4bec-a577-c8ee91458eb9",
+          "spec_hash": "sha256:d775eea96b8386c1207350d082eab4d55e9efff0be5d6eac5ab66d550a8cb346",
+          "transaction_hash": "sha256:c5c907f1a24fd316b3c0016e510391a234205dffe9b931036ec7a3b6d3958eed",
+          "transaction_id": "b7bbfaa3-549e-4e6e-9642-13c4bdbc3883"
+        }
+      ],
+      "original_materialization": "sha256:00ec9d287f7cbd04f52150f700730cb4160825db2bf44d5ef9dcfc2d0ea20368",
+      "edited_materialization": "sha256:19d3caf4717ac2344fa25da326170481a17c5b5ea138a0aaa2b02ac755ebd3e3",
+      "head": {
+        "generation": "1",
+        "revision_id": "452c3c87-26e0-42b1-a22d-ab50d913e6ce"
+      },
+      "feature_count": 17,
+      "stable_feature_ids": true,
+      "fresh_cli_process_per_step": true,
+      "portable_export_exact_bytes": true,
+      "measurements": {
+        "original": {
+          "status": "pass",
+          "thickness_mm": 12.0,
+          "first_bolt_center_x_mm": 35.0,
+          "volume_mm3": 83352.7362850476
+        },
+        "edited": {
+          "status": "pass",
+          "thickness_mm": 16.0,
+          "first_bolt_center_x_mm": 40.0,
+          "volume_mm3": 111136.98171339682
+        }
+      },
+      "industrial_qualification": "not_established"
+    }
+  },
+  "linux": {
+    "rust_core_tests": {
+      "passed": 21,
+      "log_sha256": "sha256:7635b57edf7c71a928f1ccce5708b1703792896927bd1d5faf77210aacc8e1c8"
+    },
+    "python_tests": {
+      "passed": 122,
+      "log_sha256": "sha256:95e781a99a416ecc681705ea699d56d90c4731b1d7071880899991c04417111c"
+    },
+    "native_project_demo": {
+      "schema_version": "deep3d.native-project-demo/1",
+      "status": "pass",
+      "scope": "local_flange_engineering_kernel",
+      "project_id": "888c59ac-6fe9-4154-a553-32e0ce79b851",
+      "project": "flange.deep3d",
+      "project_sha256": "sha256:7c90a3afefc01756b3592fcd80e25a56cbbbe6929c4f9b6bc6ade3fdeecf667b",
+      "history": [
+        {
+          "id": "d7011c31-9b9f-44ef-ad0a-1a80d7fa45af",
+          "message": "Initial project",
+          "parent": null,
+          "spec_hash": "sha256:7f8e07001fb915c103342b1787d2306412292de49a42a03437bf8f9cf6d244eb",
+          "transaction_hash": null,
+          "transaction_id": null
+        },
+        {
+          "id": "b60bc154-432a-4a63-82ff-183960e9b665",
+          "message": "Increase thickness and bolt spacing",
+          "parent": "d7011c31-9b9f-44ef-ad0a-1a80d7fa45af",
+          "spec_hash": "sha256:0dad8a44222a17bc84e18c0ad954aae5b44d963970f889bbd8f0f93334e2dfa6",
+          "transaction_hash": "sha256:59b7bc0a816f95570341ee157fca730f96c965526b837e97a1f9dcc541341a2b",
+          "transaction_id": "62f96cd8-043a-4808-90b3-4fbfbe0269ac"
+        }
+      ],
+      "original_materialization": "sha256:461d650f6b923313b868f2e1eb8759e141a5ae4448cd4685290df6cd10428100",
+      "edited_materialization": "sha256:f1a2bf636b7cd6c523820d997bf96d2b149b02fc24680d179e812573a13e93fe",
+      "head": {
+        "generation": "1",
+        "revision_id": "b60bc154-432a-4a63-82ff-183960e9b665"
+      },
+      "feature_count": 17,
+      "stable_feature_ids": true,
+      "fresh_cli_process_per_step": true,
+      "portable_export_exact_bytes": true,
+      "measurements": {
+        "original": {
+          "status": "pass",
+          "thickness_mm": 12.0,
+          "first_bolt_center_x_mm": 35.0,
+          "volume_mm3": 83352.7362850476
+        },
+        "edited": {
+          "status": "pass",
+          "thickness_mm": 16.0,
+          "first_bolt_center_x_mm": 40.0,
+          "volume_mm3": 111136.98171339682
+        }
+      },
+      "industrial_qualification": "not_established"
+    },
+    "rust_binary_sha256": "sha256:bfa103910c663b89dbc9cef28ac91cb546d0a4eba28fc449618940c0a25857bd",
+    "runtime_image_id": "sha256:28f64dd512b61b741185b6e722f910ef087cf881bcaf1a2ef561c67010a9d7e9",
+    "runtime_policy": {
+      "network": "none",
+      "root_fs_read_only": true,
+      "user": "10001:10001",
+      "cpus": 2,
+      "memory_bytes": 1073741824,
+      "pids_limit": 128
+    }
+  },
+  "cross_platform_windows_package_export_on_linux": {
+    "status": "pass",
+    "step_sha256": "sha256:5a81348fef76e24ce3f74cd72faad67d6fcb8c21bab4f45b143f66412761ed3a"
+  },
+  "source_files": {
+    "Cargo.lock": "sha256:7ee3a31f4c0dab1251cdd34de3cbd9b96ca82abd6cd00e5e1e11a1ecb4841253",
+    "Cargo.toml": "sha256:bd91ba01f8c49c2915ef9b802a31b690ee7c1589aae6e865adbbe17146ad69e1",
+    "crates/core-domain/Cargo.toml": "sha256:65edd80dbab8c86bb143a3f2a656edf60ce80ffb721c57b8d8fc1c7fc9206016",
+    "crates/core-domain/examples/emit_plan.rs": "sha256:b7e75dd8e5de51cb1ee30f70f9bc6870dce48922d410ab0b41e76dfbd99dc2cd",
+    "crates/core-domain/src/compiler.rs": "sha256:541779527a42e001cee26b75d1d5e1642a93d0557ac404bae8f54dad68126b2a",
+    "crates/core-domain/src/lib.rs": "sha256:0fb8890df778049afaa4d75469335e2a832e2cfc0ed248542f59ce0c6b7496fe",
+    "crates/core-domain/src/model.rs": "sha256:462d921f6ec6395dd18c2a02d15ee62a4fc704e766a2e332c130f1330d084352",
+    "crates/core-domain/src/transaction.rs": "sha256:f3bbf66e3b0efa5bd24c58c4cf4b64361afc7cee5c943916dc82bce962b3ead3",
+    "crates/core-domain/src/u64_string.rs": "sha256:c2fc03848f4b24422f37309ec825d915452612800ecdd80f0ebb9d313b8637b1",
+    "crates/core-domain/src/validation.rs": "sha256:426e2a6d60bce2360604f24010d73d411e8eacbf9f5b78513961d0cdc9e718d9",
+    "crates/core-domain/tests/engineering.rs": "sha256:36936fcacf109571a53be7c15829c3d92d38593133e806234be38f2b9405a529",
+    "crates/core-storage/Cargo.toml": "sha256:fc9b119ea5d9ac91d5529022de181fb621f6b717d7a571e603013f4cf63f4876",
+    "crates/core-storage/src/lib.rs": "sha256:d68e8d427b9cc4d03d3ce4824962823a1205ed7fe96c1102fd0adec5e0588ecb",
+    "crates/core-storage/src/tests.rs": "sha256:a7a5ed45831dd6c9ece6301c73c1a6dc3d8a7360943d8873ea49e8ec8b27509b",
+    "crates/deep3d-cli/Cargo.toml": "sha256:6f3cbf667e54a1690e6e7093a853692025f294a83cc678625792bddc4a7d7096",
+    "crates/deep3d-cli/src/bridge.rs": "sha256:afd0b8e888f2472ace839e0d26c3f5df9fd36e7ee060596eca3c9022848e3ea8",
+    "crates/deep3d-cli/src/main.rs": "sha256:74ba7b9bcb076b25246cf4d08ddaf7912c3a78e108d67516d479666532041540",
+    "crates/deep3d-cli/tests/workflow.rs": "sha256:8da7040fd1fc4ddeabbb79d82568812be1a71a3933047161929d8ca838e06fb3",
+    "deploy/cad/Dockerfile": "sha256:226c1324ab1f2c785bea93207401f8ea2df2cf651d7252efb34e4181ff7ca1e8",
+    "pyproject.toml": "sha256:fdfd60fe606237fe96af01fbcfae3d9dcbfb4e140ff846b1110cafa00cd5c73e",
+    "requirements.lock": "sha256:d39a3e8c7b521729af50292c12223262994e92e05dbc959dedb0db127d783cbc",
+    "scripts/cargo.ps1": "sha256:4da48253ea8b7b0d57ce3a66a9499998bb70d48a8a27dd782971efb593777b33",
+    "scripts/demo_project.py": "sha256:54339060292cc3ea5ae6c2367351f5c831e917c9d8c04f7be39ab25ca51d0c07",
+    "tests/test_contracts.py": "sha256:b1a1f91c629a95eb1dc047c1e08cd89592693057c9a9000e9cc206adc16eec90",
+    "tests/test_kernel.py": "sha256:be6d952a999020c97751ab9abe4106cb82f72d8ecef3bcd352271e9322e4025b",
+    "tests/test_project_worker.py": "sha256:c5c61714821d59566626bc7cf48d666161e7a6789c99121535a9b1ebbad31b08",
+    "tests/test_runner.py": "sha256:25b0081823de82bd86b4cb6a41689ecc7c90be1128ca27c4787c051d339e5a21",
+    "tests/test_verifier.py": "sha256:757fadfd2f4b7c66e9184498670cb75cfb669285a111182ec93429f24ee991b8",
+    "uv.lock": "sha256:3e3d7179398aaf5ba557f4a7bc2678261b3509757124244b792639a0debc981b",
+    "workers/cad/src/deep3d_cad/__init__.py": "sha256:4b52c33b2aa741c9d9929271f5bb4da172aa0b0dd88376f03b408de92b3ee631",
+    "workers/cad/src/deep3d_cad/__main__.py": "sha256:935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+    "workers/cad/src/deep3d_cad/cli.py": "sha256:7ff8f589befc6ec9133a9ce4220236d83c431064ea511daf9aa072fce88a66ab",
+    "workers/cad/src/deep3d_cad/contracts.py": "sha256:51018a0d5daefcd77b533ae1b225e77687bd15c9a5b649c5e2bda4dac28a0549",
+    "workers/cad/src/deep3d_cad/jsonio.py": "sha256:b9e7dbd113b090eca5fdf3f12758bc1b2206a6250487187ba3b897bbfdc6b2ea",
+    "workers/cad/src/deep3d_cad/kernel.py": "sha256:bb8692742f7346f4680602b2cd5a2ff7aa90d87de95a04050b0f68ccbd1d118e",
+    "workers/cad/src/deep3d_cad/project_worker.py": "sha256:d515e389d231c34136c290cf244189a17f903d90f6446cc367e99629c3d84faa",
+    "workers/cad/src/deep3d_cad/runner.py": "sha256:247ae2094dc9635ad5a12f4fcc563db49165e72978e9a9c704f47e9668dd8e10",
+    "workers/cad/src/deep3d_cad/verifier.py": "sha256:ce387122106e1ea4dc48a956e7acfda94ba058b2b285873da95f0fff09ef0e84",
+    "workers/cad/src/deep3d_cad/worker.py": "sha256:e57d9114fbde10f7f208ba4e3f6a293ad4f240f45a98659da2a24366338643ce"
+  },
+  "remaining": [
+    "PostgreSQL/cloud publication",
+    "durable Agent runtime",
+    "incremental execution/cache",
+    "large-project incremental I/O",
+    "full CAD feature set",
+    "industrial qualification"
+  ]
+}

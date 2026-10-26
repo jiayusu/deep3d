@@ -1,0 +1,22 @@
+[package]
+name = "deep3d-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "deep3d"
+path = "src/main.rs"
+
+[dependencies]
+core-domain = { path = "../core-domain" }
+core-storage = { path = "../core-storage" }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+clap.workspace = true
+tempfile.workspace = true
+wait-timeout.workspace = true
+
+[dev-dependencies]
+zip.workspace = true

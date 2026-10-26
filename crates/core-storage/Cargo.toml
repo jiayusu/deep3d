@@ -1,0 +1,17 @@
+[package]
+name = "core-storage"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+core-domain = { path = "../core-domain" }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+fs2.workspace = true
+tempfile.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

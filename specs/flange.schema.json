@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:deep3d:flange:1",
+  "title": "Axis-aligned analytic flange specification v1",
+  "description": "Dimensions in mm, angles in rad. Application validation additionally requires at least 0.1 mm material between all holes and stock boundaries. This is a bounded fixture, not a generic CAD feature schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "units", "coordinate_system", "outer_diameter_mm", "thickness_mm",
+    "center_hole_diameter_mm", "bolt_hole_diameter_mm", "bolt_circle_diameter_mm", "hole_count",
+    "start_angle_rad"
+  ],
+  "properties": {
+    "schema_version": {"const": "deep3d.flange/1"},
+    "units": {"const": "mm"},
+    "coordinate_system": {"const": "right_handed_z_up"},
+    "outer_diameter_mm": {"type": "number", "minimum": 1, "maximum": 1000},
+    "thickness_mm": {"type": "number", "minimum": 1, "maximum": 1000},
+    "center_hole_diameter_mm": {"type": "number", "minimum": 0.1, "maximum": 1000},
+    "bolt_hole_diameter_mm": {"type": "number", "minimum": 0.1, "maximum": 1000},
+    "bolt_circle_diameter_mm": {"type": "number", "minimum": 0.1, "maximum": 1000},
+    "hole_count": {"type": "integer", "minimum": 3, "maximum": 32},
+    "start_angle_rad": {"type": "number", "minimum": -6.283185307179586, "maximum": 6.283185307179586}
+  }
+}

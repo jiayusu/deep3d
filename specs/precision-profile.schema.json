@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:deep3d:precision:1",
+  "title": "Analytic CAD precision profile v1",
+  "description": "Proposed thresholds with independent semantics. Application checks additionally ensure working tolerance <= maximum shape tolerance and measurement uncertainty < both dimension limits. Passing this profile is not manufacturing certification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "working_tolerance_mm", "max_subshape_tolerance_mm",
+    "critical_dimension_error_mm", "step_roundtrip_dimension_error_mm", "volume_relative_error",
+    "measurement_error_budget_mm"
+  ],
+  "properties": {
+    "schema_version": {"const": "deep3d.precision/1"},
+    "working_tolerance_mm": {"type": "number", "exclusiveMinimum": 0, "maximum": 0.001},
+    "max_subshape_tolerance_mm": {"type": "number", "exclusiveMinimum": 0},
+    "critical_dimension_error_mm": {"type": "number", "exclusiveMinimum": 0},
+    "step_roundtrip_dimension_error_mm": {"type": "number", "exclusiveMinimum": 0},
+    "volume_relative_error": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+    "measurement_error_budget_mm": {"type": "number", "exclusiveMinimum": 0}
+  }
+}

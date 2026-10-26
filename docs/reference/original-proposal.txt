@@ -1,0 +1,8811 @@
+# 开源 3D 建模 Agent：从底层引擎到云原生智能建模系统
+
+我认为这个项目值得从软件架构的第一性原理开始讨论。
+
+你提出的三个关键词——云端、异步并发、长程——实际上会改变整个 3D 建模软件的设计方式，包括建模命令如何表示、几何引擎如何执行、工程文件如何保存，以及用户和 Agent 怎样协同工作。
+
+传统 3D 建模软件的基本假设是：用户持续操作一个打开的工程，建模命令依次执行，软件将结果显示在当前视口中。
+
+你的软件可以采用另一组基本假设：
+
+- 云端：工程和任务拥有独立于用户设备的生命周期，任何计算节点都可以在授权范围内参与建模。
+- 异步：Agent 提交任务后，用户可以继续工作、关闭软件或切换项目。任务结果在完成后进入工程版本体系。
+- 并发：多个 Agent 能够同时设计同一模型的不同部分，也能够探索多个候选方案，最终通过明确的规则合并结果。
+- 长程：一个建模任务可以持续数小时甚至跨越多天，保留目标、决策、失败记录、几何状态与评估结果，支持暂停、恢复和人工干预。
+
+这四个性质要求我们重新考虑一个关键问题：
+
+3D 建模软件的基本操作单位，到底应该是一次鼠标操作、一个网格对象、一条建模命令，还是一个可以独立执行、验证和提交的建模任务？
+
+我的建议是同时保留三个层次：用户的交互操作、引擎的确定性建模操作，以及 Agent 的持久化任务。它们通过统一的场景状态和版本系统连接起来。
+
+## 一、先确定这个软件的技术定位
+
+目前有三条可能的发展路线。
+
+| 路线 | 核心特点 | 主要代价 |
+| --- | --- | --- |
+| Blender + Agent | 复用完整的专业 DCC 功能，快速验证 Agent 工作流 | 底层运行时和状态体系受 Blender 架构约束 |
+| 自研建模引擎 + Agent | 可以围绕云端协作、任务执行和 Agent 重新设计内部模型 | 几何算法、编辑交互和图形系统工作量很大 |
+| 自研 Agent 原生平台 + 复用几何内核 | 掌握场景模型、任务调度、并发控制和 Agent 接口，同时复用成熟的几何算法 | 需要设计可靠的多引擎适配与统一表示 |
+
+我更倾向于第三条路线。
+
+这意味着你可以从底层软件引擎的架构开始研发，但不必自己从零实现曲面求交、布尔运算、网格三角化和实体拓扑求解。
+
+项目真正自主研发的核心会是：
+
+Scene Kernel（场景内核） + Modeling Runtime（建模运行时） + Durable Agent Runtime（持久化 Agent 运行时）。
+
+其中，Scene Kernel 负责描述工程，Modeling Runtime 负责执行确定性的 3D 操作，Agent Runtime 负责理解目标、安排计算、验证结果和持续推进任务。
+
+这样也能保持项目的开源属性：开发者可以替换 LLM、几何后端、渲染器和云端执行环境，而不必重新编写整个软件。
+
+## 二、现有开源项目能提供哪些基础？
+
+先看几个真正值得研究的项目。截至 2026 年 10 月，它们已经覆盖了不少单项能力，但侧重点有所不同。
+
+| 项目 | 值得复用或研究的部分 | 对本项目的启发 |
+| --- | --- | --- |
+| Blender | 多边形建模、修改器、材质、动画、渲染 | 作为成熟 DCC 执行后端和兼容目标 |
+| OpenUSD | 场景描述、Layer、Reference、Composition | 用于复杂场景的表示和组合 |
+| Open CASCADE | B-Rep、曲线曲面、精确几何计算 | 精密实体建模的核心 |
+| build123d | Python 参数化建模接口 | Agent 友好的 CAD 操作语言 |
+| Manifold | 网格布尔运算、流形几何 | 网格几何的可靠计算 |
+| Blender MCP | LLM 控制 Blender | 研究现有工具调用方式 |
+| agentcad | CAD 执行、渲染、指标、版本差异 | 参考 Agent 几何验证闭环 |
+| Procedura | 可编辑程序化建模、分部件构建、检查 | 参考从自然语言到参数化程序的过程 |
+
+其中 Blender MCP 主要解决 Agent 如何控制 Blender；agentcad 已经将代码执行、STEP 导出、几何检查和可视化反馈连接起来；Procedura 进一步强调可编辑的参数化模型。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++2
+
+我建议对这些项目保持两个认识。
+
+第一，建模工具调用层已经有可参考的开源实现，我们可以直接研究并兼容它们。
+
+第二，云端持久化工程、Agent 并发编辑、任务恢复、结构化合并，以及跨多个建模后端的统一管理，可以成为我们重点发展的系统能力。这里说的是建议的差异化方向，并不是说现有项目完全没有这些功能。
+
+## 三、底层引擎到底应该怎样分层？
+
+我建议先建立下面这张系统架构图。它也是后面讨论模块接口的依据。
+
+用户工作空间
+
+3D 视口 · 对象树 · 属性面板 · Agent 会话 · 任务/版本面板
+
+Commands / Events / Scene Diff
+
+场景与操作内核（自研）
+
+Scene Graph
+
+Feature DAG
+
+Transaction
+
+Version Store
+
+Constraint
+
+Semantic IDs
+
+Modeling Runtime
+
+Mesh / B-Rep / Procedural / Material
+
+CPU / GPU Workers
+
+Agent Runtime
+
+Planner / Executor / Verifier
+
+Durable Workflow / Scheduler
+
+云端数据层
+
+Metadata DB
+
+Object Storage
+
+Event Log
+
+建议架构：用户端只需要持续维护交互状态；建模计算与 Agent 任务拥有独立的云端生命周期。图中的模块是职责边界，不代表每一个都需要部署成独立微服务。
+
+这里我想特别强调：场景内核、几何内核、渲染引擎是三个不同概念。
+
+### 3.1 几何内核：真正执行建模数学运算
+
+建模软件至少会遇到两类重要的几何表示。
+
+3D豆知識 - 3Dモデルのポリゴン数を調べたい
+
+Polygon Mesh
+
+顶点、边、面。适合游戏资产、雕刻、角色与环境建模。
+
+Boundary representation (b-rep): What it is, and why it’s a problem in CAD
+
+B-Rep / CAD Solid
+
+解析曲面、边界与实体拓扑。适合机械零件、工业产品和尺寸约束。
+
+它们的计算特征明显不同。
+
+| 能力 | Mesh 后端 | B-Rep 后端 |
+| --- | --- | --- |
+| 编辑顶点、边、面 | 原生支持 | 通常不是主要编辑方式 |
+| 精确圆柱、圆角、工程尺寸 | 近似或额外约束 | 更合适 |
+| 艺术建模与自由形变 | 更合适 | 受表示方式约束 |
+| 布尔运算 | Manifold 等 | OCCT |
+| 导出 | GLB、OBJ、STL | STEP、BREP，亦可网格化 |
+| Agent 可验证性 | 拓扑、流形性、包围盒、外观 | 体积、几何公差、精确尺寸、特征 |
+
+OCCT 已经具备复杂的实体与曲面建模算法；Manifold 提供可靠的流形网格布尔操作；build123d 则提供一层对程序与 Agent 较为友好的 Python 建模抽象。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++2
+
+我的技术取舍是：先实现一个统一操作接口，底层按照几何表示分派到不同 Kernel。
+
+```
+ModelingKernel
+ ├── MeshKernel
+ │    ├── CreatePrimitive
+ │    ├── Extrude
+ │    ├── Boolean
+ │    ├── Subdivide
+ │    └── Remesh
+ │
+ ├── BRepKernel
+ │    ├── Sketch
+ │    ├── Extrude
+ │    ├── Revolve
+ │    ├── Fillet
+ │    └── Boolean
+ │
+ └── ProceduralKernel
+      ├── EvaluateGraph
+      ├── GenerateInstances
+      └── BakeGeometry
+```
+
+但不能假设所有操作都能在 Mesh 和 B-Rep 间无损转换。每个 Kernel 应明确支持的输入表示、精度、失败类型、输出拓扑，以及能否保留可编辑历史。
+
+### 3.2 场景内核：3D 软件更需要自主掌握的部分
+
+我建议研究 OpenUSD，但不要把它直接等同于整个建模引擎。
+
+OpenUSD 的 Layer、Reference、Variant 和 Composition 机制适合组织大型场景和非破坏性覆盖；Hydra 能进一步解耦场景表示与渲染后端。
+
+[](https://www.google.com/s2/favicons?domain=https://openusd.org&sz=32)
+
+Universal Scene Description 26.08 documentation
+
++1
+
+不过 OpenUSD 本身并不替你实现完整的建模命令历史、CAD 特征求解或分布式任务事务。
+
+我们的场景内核应该至少维护四套相互关联的结构：
+
+| 结构 | 保存什么 | 为什么重要 |
+| --- | --- | --- |
+| Scene Graph | 节点、层级、变换、材质、可见性 | 组织完整 3D 世界 |
+| Feature Graph | 建模操作、输入依赖、参数及输出 | 支持重算、编辑和缓存 |
+| Semantic Graph | 部件语义、功能、关系、设计约束 | 帮助 Agent 理解和操作模型 |
+| Version Graph | 快照、提交、分支、变更集 | 支持并发、撤销和长期演化 |
+
+这里最值得自主设计的是后面三种结构。
+
+例如，一个用户让 Agent 创建一把椅子。在通常的网格表示中，它可能只是一个名为 `Chair` 的 Mesh。
+
+而我们希望软件知道，椅子有四条腿、一个坐面、一个靠背，腿承担支撑功能，坐面高度受到约束，靠背的设计允许独立修改。
+
+这会使得后续指令“把靠背提高 10 厘米，但不要动坐面”能够解析为明确的工程操作。
+
+### 3.3 数据结构：保留建模意图
+
+建议自研一个类型化的 Modeling IR（中间表示），并将其作为 Agent 与建模内核之间的稳定协议。
+
+下面是一个概念示例，具体字段还需要在实现中进行规范化。
+
+```
+{
+  "operation_id": "op_104",
+  "type": "geometry.extrude",
+  "target": {
+    "node_id": "chair_seat",
+    "feature_id": "seat_profile"
+  },
+  "parameters": {
+    "distance": 0.04,
+    "unit": "m",
+    "direction": [0, 0, -1]
+  },
+  "preconditions": {
+    "base_revision": "rev_18",
+    "target_exists": true
+  },
+  "postconditions": {
+    "geometry_valid": true
+  }
+}
+```
+
+这种操作具有重要的工程性质：它的目标和参数可以被验证；执行前有前置条件；执行后能够获得结构化结果；还能被记录、重放、缓存或拒绝。
+
+但要注意，操作可重放不自动意味着结果跨不同内核版本或 GPU 环境逐位一致。每个执行结果还需要记录内核版本、参数、随机种子、资源依赖和必要的数值容差。
+
+### 3.4 最难的几何问题之一：拓扑身份
+
+假设 Agent 给椅子倒角。
+
+倒角操作可能新增一些面，原来的边和面索引随之发生变化。另一个 Agent 此时仍然认为它引用的是 `Face_12`。
+
+这就会引发错误。
+
+这类问题在 CAD 中被称为 Topological Naming Problem。FreeCAD 官方文档明确记录了它对参数化依赖的影响，并介绍了使用追踪与修复机制缓解问题的方向。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
+我们的设计需要引入：
+
+- 对象级稳定 UUID。
+- 特征级语义标识，例如 `seat.top`、`leg.front_left`。
+- 内核返回的拓扑演化映射。
+- 引用失效后的重定位与验证机制。
+- 无法安全恢复时要求重新求解或人工确认。
+
+这一点将直接影响 Agent 长程运行的正确性。
+
+## 四、云端、异步与并发应该怎样进入建模引擎？
+
+这是整套软件与一般建模 Agent 差异最大的部分。
+
+### 4.1 云端：工程必须脱离单个应用进程生存
+
+假设用户提交一个任务：
+
+> 帮我制作一座具有五个独立建筑、完整庭院和夜晚灯光的日式城堡。要求所有建筑可以单独编辑，导出游戏引擎可用的 GLB。
+> 
+
+用户提交任务后关闭电脑。云端 Agent 仍然可以推进任务，第二天用户打开软件时，应当能查看任务日志、成果、未完成部分和可继续执行的版本。
+
+这里需要有三个独立的生命周期。
+
+| 生命周期 | 状态 | 生命周期拥有者 |
+| --- | --- | --- |
+| Editor Session | 连接、断开、重新连接 | 用户设备 |
+| Project | 创建、编辑、分支、归档 | 工程存储服务 |
+| Agent Run | 排队、执行、暂停、恢复、结束 | 云端工作流服务 |
+
+三者不能相互依赖。关闭 Editor Session 不应取消 Project 或 Agent Run。
+
+推荐的云端存储模型：
+
+```
+Project
+ ├── project.json
+ ├── branches/
+ │    ├── main
+ │    └── agent/castle-v1
+ ├── manifests/
+ │    ├── snapshot_001.json
+ │    └── snapshot_002.json
+ ├── operations/
+ │    └── append-only operation log
+ ├── assets/
+ │    ├── geometry/
+ │    ├── materials/
+ │    └── textures/
+ └── agent-runs/
+      ├── plan.json
+      ├── checkpoints/
+      └── evidence/
+```
+
+这是逻辑结构，不要求实际在对象存储里逐项创建这些目录。实践上可以通过 PostgreSQL 保存元数据，S3/MinIO 保存大型几何、纹理及生成产物。
+
+重要原则：不能每执行一步建模操作，就把整个工程文件完整复制一次。
+
+要把可共享的数据块与版本清单分离。未变化的几何、材质和纹理可以复用，版本记录只保存新的引用和必要的增量。
+
+### 4.2 异步：从同步函数调用变成持久化任务
+
+同步建模 API 通常是：
+
+```
+mesh = create_mesh(params)
+```
+
+对于长时间的云端建模，应该提供另一种接口：
+
+```
+POST /v1/projects/{project_id}/runs
+```
+
+提交任务后，服务器首先持久化任务记录，再返回 `202 Accepted` 和 `run_id`。后续结果通过状态查询、事件订阅和产物下载获取。
+
+任务的状态可以设计为：
+
+Queued
+
+Planning
+
+Running
+
+Validating
+
+Review
+
+Committed
+
+Running 可进入 Paused、Failed、Cancelled；Review 可接受、拒绝或请求修改。Failed 的可重试步骤可再次入队。
+
+对于系统级工作流，我倾向于使用 Temporal。
+
+Temporal 的优势在于，Workflow 可以在 Worker 故障后根据持久化历史恢复，支持 Timer、Signal、Child Workflow，以及 Activity 的重试和心跳。它要求编排逻辑可确定性重放，实际 LLM 请求和几何计算应放入 Activity。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+例如：
+
+```
+CreateCastleWorkflow
+  │
+  ├── AnalyzeRequirements
+  │
+  ├── CreateModelingPlan
+  │
+  ├── SpawnBuildingWorkflows
+  │     ├── MainTowerWorkflow
+  │     ├── GateWorkflow
+  │     ├── WallWorkflow
+  │     └── CourtyardWorkflow
+  │
+  ├── AssembleScene
+  │
+  ├── ValidateScene
+  │
+  ├── RenderReviewImages
+  │
+  └── WaitForApproval
+```
+
+有一个重要的工程细节：Temporal 保存的是工作流执行历史，并不自动保存整个几何进程的内存。
+
+如果一个 Blender Worker 在网格细分到一半时崩溃，恢复工作流也不能神奇地找回那个进程内存。必须在合适的建模阶段保存结果快照，下一次从最近的可靠检查点继续执行。
+
+另外，工作流重试通常意味着外部 Activity 可能重复执行。所有关键操作应设计幂等键，并由提交服务保证同一个结果不会被重复发布。
+
+### 4.3 并发：不是同时启动多个 Agent 就结束了
+
+这里至少存在三种不同的并发。
+
+计算并发：多个 Worker 同时生成模型、材质、贴图或渲染图像。相互独立的任务可以直接并行。
+
+设计并发：多个 Agent 分别负责不同的建模子任务，处理各自的依赖和设计要求。
+
+状态并发：多个 Agent，或者用户与 Agent，同一时间修改同一个工程。它需要正确处理版本、冲突和合并。
+
+第三种最难，也是从建模系统底层开始设计的理由。
+
+我们可以借鉴 Git 的分支思想：
+
+```
+                 ┌── Agent A: Main Tower ──┐
+Revision 12 ─────┤                         ├── Revision 13
+                 └── Agent B: Courtyard ───┘
+```
+
+但三维工程的合并比文本代码复杂。
+
+两个 Agent 分别改变建筑的位置时，通常容易合并。一个 Agent 改变网格拓扑，另一个 Agent 同时修改该网格上的 UV 或面选择，就有可能产生不可自动解决的冲突。
+
+我建议采用分层并发策略：
+
+| 修改类型 | 并发策略 |
+| --- | --- |
+| 不同对象的独立编辑 | 分支并行，自动合并 |
+| 不同属性的编辑 | 乐观并发控制，属性级合并 |
+| 同一属性的竞争修改 | 显式冲突，遵循规则或交给用户 |
+| 同一 Mesh 的拓扑修改 | 初期采取独占写入或分支后人工合并 |
+| 同一参数化特征依赖链 | 检查依赖、重新求值并验证 |
+| 多个候选设计 | 独立分支，评估后择优提交 |
+
+不要一开始就承诺整个 3D 场景能像多人文本编辑一样实现无冲突协同。
+
+Yjs 等 CRDT 技术非常适合共享文字、对象属性、评论、光标和在线状态，但它们的数据合并能力不能自动保证几何拓扑和特征依赖的正确性。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
+更合适的方案是：共享状态用 CRDT 或实时同步机制；真正改变几何的操作使用基于版本的事务。
+
+一次可靠提交可以抽象为：
+
+```
+Agent reads revision 12
+        ↓
+Agent constructs ChangeSet
+        ↓
+Kernel validates geometry
+        ↓
+Transaction checks read/write dependencies
+        ↓
+Compare-and-swap branch head
+        ↓
+Commit revision 13
+        ↓
+Broadcast Scene Diff
+```
+
+提交失败时，Agent 应当根据冲突类型重新读取、重算或请求协助，而不应直接覆盖其他参与者的修改。
+
+### 4.4 长程：Agent 需要保存自己的工作状态
+
+长期建模不是让模型维持一个超长对话上下文。
+
+更实用的机制是把长期任务保存为一个持续演化的工作对象。
+
+```
+AgentRun
+ ├── GoalSpec
+ ├── AcceptanceCriteria
+ ├── PlanDAG
+ ├── CurrentStep
+ ├── SceneRevision
+ ├── ArtifactReferences
+ ├── AttemptHistory
+ ├── ValidationReports
+ ├── DecisionRecords
+ ├── TokenAndComputeBudget
+ └── PendingHumanDecisions
+```
+
+这里的记忆需要分成三类。
+
+第一类是工程事实，例如已经存在的对象、尺寸、几何关系、贴图路径。这些数据应当从场景内核查询，不应该依赖 Agent 的自然语言记忆。
+
+第二类是任务事实，例如哪些步骤完成了、之前失败的原因、已经消耗多少预算。这部分存入工作流状态和数据库。
+
+第三类是设计经验，例如用户喜欢怎样的塔楼比例、某种建模方法为何失败。它可以形成可检索的决策记录，但应附有来源与适用范围。
+
+这三类状态区分开来之后，Agent 即使切换模型或丢失对话上下文，也能够继续建模。
+
+## 五、Agent 怎样更好地内嵌到 3D 软件里？
+
+我认为这里最需要创新。
+
+许多 Agent 软件的交互方式仍然是：用户输入自然语言，Agent 调用工具，用户等待结果。
+
+对于三维建模，这种方式只能覆盖一部分需求。专业用户会频繁切换对象、调整局部几何、查看不同视角、比较设计方案，Agent 应当理解用户当前的操作环境。
+
+### 5.1 Agent 应当具备场景感知能力
+
+例如，用户在视口中选中一座城楼的屋顶，直接输入：
+
+> 屋檐再向外延伸一点，四个角保持对称。
+> 
+
+Agent 的输入应当包含选区、编辑模式、当前版本、几何表示、对象语义和局部截图。
+
+但无需把整个工程或数十万顶点全部塞进模型上下文。
+
+建议实现一个 Scene Context Service，按需提供结构化信息。
+
+| 上下文层次 | Agent 获取的信息 |
+| --- | --- |
+| Project | 工程目标、单位、坐标系、设计规范 |
+| Scene | 主要对象、父子关系、可见性、包围盒 |
+| Selection | 用户选中的对象、面、边或特征 |
+| Geometry | 拓扑统计、法线、局部尺寸、相邻关系 |
+| Semantic | 对象用途、约束和依赖 |
+| Visual | 指定视角渲染图、深度图、法线图 |
+| History | 最近修改、失败结果、任务日志 |
+
+查询方式应是分层的。Agent 首先了解场景摘要，再根据任务调用 `inspect_object`、`inspect_topology`、`render_view` 等工具。
+
+这样可以降低 token 消耗，也让 Agent 获取的信息更准确。
+
+### 5.2 Agent 的工具接口应该是原生建模命令
+
+我建议采用三层工具能力：
+
+| 层次 | 示例 | 用途 |
+| --- | --- | --- |
+| 语义工具 | `create_staircase`、`add_support_columns` | 高层次设计任务 |
+| 几何工具 | `extrude`、`boolean`、`bevel` | 精确几何编辑 |
+| 执行工具 | `execute_script`、`run_generator` | 复杂程序化建模 |
+
+Agent 首先调用语义工具；语义工具内部可以生成 Feature Graph，并分解为几何操作。只有现有工具难以表达时，才进入受限制的代码执行环境。
+
+例如：
+
+```
+type ModelingCommand = {
+  commandId: string;
+  baseRevision: string;
+  operation: string;
+  targetIds: string[];
+  params: Record<string, unknown>;
+  expectedOutput?: {
+    geometryType?: "mesh" | "brep";
+    validTopology?: boolean;
+  };
+};
+```
+
+这个接口应同时服务于鼠标交互、快捷键、脚本和 Agent。这样用户通过工具栏挤出一个面，与 Agent 发出挤出命令，最终进入的是同一条执行路径。
+
+我尤其不建议让 Agent 默认通过模拟鼠标点击驱动建模。GUI 自动化可以作为兼容性工具，但核心功能应该建立在类型化、可验证的操作接口之上。
+
+### 5.3 让 Agent 具备持续观察与纠错能力
+
+Agent 执行建模命令之后，需要能够判断结果质量。
+
+目标与设计约束
+
+Planner
+
+选择下一个操作
+
+Executor
+
+提交几何任务
+
+观察：几何指标 + 多视角渲染 + 约束检查
+
+Verifier
+
+通过
+
+需要修改
+
+需要用户
+
+根据验证结果，提交版本、生成新的修复步骤，或等待人工决策。
+
+这里有个值得特别研究的方向：如何让 Agent 对三维对象的验证更加客观？
+
+视觉模型可以评价外观，却不能完全替代几何检查。
+
+可以将验证拆成：
+
+| 检查维度 | 具体方法 |
+| --- | --- |
+| 几何合法性 | 非流形边、自交、退化三角形、法线方向 |
+| 尺寸与约束 | 实际尺寸、对称性、间距、干涉检测 |
+| 场景一致性 | 对象关系、比例、坐标、材质引用 |
+| 视觉质量 | 多视角图像比较、参考图相似性 |
+| 可编辑性 | Feature Graph 是否可重算、目标是否能再次修改 |
+| 导出质量 | GLB/STEP 重新导入、三角面数、资源完整性 |
+
+现有的 3DCodeBench 已经从 Blender 程序执行成功率、图像相似性和三维形状距离等方向测评 Agent 建模；CADGenBench 则覆盖工程零件的创建和编辑。它们可以成为我们最初的评测基础。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+我认为真正有价值的指标是：经历多轮 Agent 修改后，模型能否持续保持有效、符合约束，并且仍可编辑。
+
+## 六、软件交互界面应该重新怎样组织？
+
+我们可以保留熟悉的 3D 视口、对象树与属性编辑器，同时让 Agent 的工作过程成为工作空间的一部分。
+
+3D Agent Studio
+
+概念布局
+
+Project
+
+Edit
+
+Model
+
+Agents
+
+Review
+
+Scene
+
+▾ Castle
+
+▸ Main Tower
+
+▸ Gate
+
+▸ Walls
+
+Branch: main
+
+Low Poly Japanese Castle Modular Pack | Fab
+
+Perspective · Solid
+
+Revision 18
+
+Agent Runs
+
+Main Tower
+
+Courtyard
+
+Review: Gate
+
+Agent Command
+
+Context: Main Tower / Roof
+
+将选中的屋檐向外延长，并保持左右对称……
+
+示意布局，重点是场景选区、异步任务、版本状态和 Agent 指令之间的联系，并非最终视觉设计。
+
+这个界面应支持三种交互深度。
+
+即时协助：用户选中对象，Agent 执行一个很小的建模命令，返回结果预览并在用户确认后提交。
+
+异步委托：用户分配一个独立任务，Agent 在自己的工程分支中工作。用户可以继续编辑主分支。
+
+长期自主执行：用户交付设计目标、约束和预算，Agent 持续规划、建模、验证和修复，必要时请求决策。
+
+这三种方式可以使用同一个 Agent Runtime，区别在于任务生命周期、权限、提交策略和预算。
+
+另一个交互重点是 Review Diff。
+
+用户不能只看到 Agent 说“模型修改完成”，还应该能看到修改前后的几何差异、受影响对象、具体建模操作，以及验证结果。最好可以选择性接受部分变更。
+
+## 七、自研渲染引擎还是复用现有引擎？
+
+如果要真正从底层搭建软件，我建议把渲染与建模计算分开推进。
+
+### 7.1 渲染引擎的最小职责
+
+一个可用的编辑器视口需要支持：
+
+| 模块 | 最小实现 |
+| --- | --- |
+| Camera | 透视、正交、Orbit、Pan、Zoom |
+| Mesh | Vertex/Index Buffer、法线、UV、材质 |
+| Render | 深度测试、光照、PBR 基础效果 |
+| Selection | Ray Casting、对象和面拾取 |
+| Gizmo | 移动、旋转、缩放 |
+| Scene Update | 接收增量更新、局部刷新 GPU 资源 |
+| Debug | 线框、法线、边界框、坐标轴 |
+| Performance | BVH、实例化、视锥剔除、LOD |
+
+还有一个常被忽略的要求：渲染视图只是场景数据的一种表现，不能把渲染引擎的 Object 实例当成权威工程数据。
+
+例如，Three.js 的 Mesh 是视口对象，我们的 Scene Node 才是工程对象。两者需要一层明确的映射。
+
+### 7.2 两种合适的技术方案
+
+方案 A：TypeScript + Three.js + Tauri
+
+这是我更推荐的首发路线。
+
+Three.js 已有 WebGPU 渲染器，同时保留 WebGL2 回退机制。桌面端可以通过 Tauri 提供窗口、本地文件和进程管理。
+
+[](https://www.google.com/s2/favicons?domain=https://threejs.org&sz=32)
+
+Three.js
+
+核心优势是开发交互界面较快，而且同一套应用架构能够逐步支持浏览器和桌面平台。
+
+方案 B：Rust + wgpu 自研渲染器
+
+这个方案适合后续希望更深度控制 GPU 资源、渲染调度和大型场景的团队。wgpu 提供基于 WebGPU 的跨平台图形抽象，并支持多个原生图形后端。
+
+[](https://www.google.com/s2/favicons?domain=https://wgpu.rs&sz=32)
+
+wgpu.rs
+
+我的建议是：先自研 Scene Runtime，不急于自研所有 GPU 绘图代码。 第一版采用 Three.js 可以让精力集中在建模内核、Agent 和任务并发这些更影响系统形态的地方。
+
+## 八、引入生成式 3D 模型时，如何保持可编辑？
+
+目前已有可集成的生成式 3D 模型，例如 TRELLIS.2 和 Hunyuan3D 2.1。它们主要提供从图像等输入生成三维资产及材质的能力。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+但这些模型生成的 Mesh，通常并没有完整的参数化设计历史。
+
+所以我会把生成式建模作为独立的后端：
+
+```
+Reference Image
+       ↓
+Generative3DWorker
+       ↓
+Generated Mesh + Textures
+       ↓
+Mesh Validation
+       ↓
+Retopology / Optimization (optional)
+       ↓
+Editable Mesh Asset
+       ↓
+Scene Version
+```
+
+在 Scene Graph 中需要明确区分：
+
+- 原生参数化几何。
+- 手工编辑的 Polygon Mesh。
+- 生成式模型输出的 Mesh。
+- 可被重新生成的 Procedural Asset。
+
+这里的可编辑性有不同等级。能够移动顶点、修改材质，和能够修改“桌子的四条腿”这样的参数化特征，是不同的能力。
+
+若希望从生成模型中提取语义部件、恢复特征历史，那本身就是一个需要单独研究的方向。
+
+另外，整个软件开源，并不意味着所有可插拔模型的权重都使用相同的开源许可证。TRELLIS.2 的仓库声明 MIT，但部分依赖有独立许可；Hunyuan3D 2.1 采用其专门的社区许可证。模型适配器应管理不同的许可证、资源要求和使用条件。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+## 九、建议采用的工程技术栈
+
+基于前面的分析，我会把首发项目组织为一个模块化单体应用，加独立执行 Worker 的架构。后续规模扩大时再拆分服务。
+
+| 层次 | 推荐技术 | 理由 |
+| --- | --- | --- |
+| 桌面 Shell | Tauri | 跨平台桌面集成 |
+| UI | React + TypeScript | 复杂交互状态和面板 |
+| Viewport | Three.js | 快速建立编辑器与预览能力 |
+| Scene Runtime | Rust | 强类型核心、操作校验、版本管理 |
+| Mesh Kernel | Manifold + 自研适配 | Mesh 基础操作和布尔 |
+| B-Rep Kernel | OCCT / build123d | 参数化精密建模 |
+| DCC Worker | Blender 独立进程 | 材质、UV、复杂修改器、渲染 |
+| Workflow | Temporal | 持久化、重试、暂停、恢复 |
+| API | Rust 或 Python 服务 | 命令执行、工程管理 |
+| Metadata | PostgreSQL | 工程、任务、提交与权限 |
+| Asset Storage | MinIO / S3 | 大型几何、纹理与渲染产物 |
+| Event Transport | WebSocket / SSE | 状态变化和进度回传 |
+| GPU Worker | Python + CUDA | 生成式 3D 与模型推理 |
+
+需要特别注意 Blender 的执行模式。
+
+Blender 官方明确指出 Python 线程与其内部运行并不具备一般意义上的线程安全保证。因此云端应通过隔离的 Blender 进程或容器执行建模任务，而不能简单地让多个 Agent 线程同时修改同一个 Blender 场景。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.blender.org&sz=32)
+
+Blender Python API
+
+### 推荐代码仓库结构
+
+```
+3d-agent-studio/
+│
+├── apps/
+│   ├── desktop/
+│   └── web/
+│
+├── crates/
+│   ├── scene-core/
+│   ├── modeling-ir/
+│   ├── feature-graph/
+│   ├── geometry-adapters/
+│   ├── transactions/
+│   └── version-store/
+│
+├── services/
+│   ├── project-api/
+│   ├── agent-runtime/
+│   ├── workflow-worker/
+│   └── asset-service/
+│
+├── workers/
+│   ├── mesh/
+│   ├── brep/
+│   ├── blender/
+│   ├── gpu-generative/
+│   └── render/
+│
+├── packages/
+│   ├── scene-client/
+│   ├── modeling-sdk/
+│   ├── agent-tools/
+│   └── plugin-sdk/
+│
+├── schemas/
+│   ├── scene/
+│   ├── operation/
+│   └── workflow/
+│
+├── benchmarks/
+└── examples/
+```
+
+`schemas` 是需要特别重视的模块。它应当有独立的协议版本，保证不同语言的 Client、Worker、Agent 和插件对工程数据有一致理解。
+
+对外可以暴露 REST/gRPC 与 MCP；内部建模执行最好仍然使用统一的强类型协议。MCP 解决的是工具发现与调用，不替代软件内部的事务和工作流机制。
+
+开源许可证上，我倾向于让自主研发核心采用 Apache-2.0 或 MIT，并单独处理 Blender 适配代码。Blender 官方说明，使用 Blender Python API 的分发脚本需要符合其 GPL 要求；不使用 Blender 代码或 API、仅通过外部程序生成数据并启动 Blender 的独立软件，适用边界有所不同。正式发布前需要对实际模块关系进行许可证审查。
+
+[](https://www.google.com/s2/favicons?domain=https://www.blender.org&sz=32)
+
+Blender
+
+## 十、一个必须提前设计的部分：安全隔离
+
+一旦允许 Agent 在云端生成和运行 Python 建模脚本，就相当于为用户提供了远程代码执行能力。
+
+所以建模 Worker 要遵循执行沙箱的设计：
+
+| 风险 | 控制机制 |
+| --- | --- |
+| Agent 生成恶意或错误代码 | 容器/沙箱隔离，受限文件系统 |
+| 无限循环或超大网格 | CPU、内存、GPU、时间配额 |
+| 修改其他工程 | 工程级权限，最小访问令牌 |
+| 重试导致重复提交 | 幂等键与事务提交 |
+| 恶意第三方模型 | 文件扫描、解析限制、来源记录 |
+| 未授权发布或覆盖 | 审批策略、分支保护 |
+| 任务费用失控 | 预算上限、超预算暂停 |
+
+仅仅检查 Python 源码中有没有 `os.system` 不足以保证安全。应把不可信脚本放在受到操作系统级隔离和资源配额约束的执行环境中。
+
+对于用户可以自行部署的开源软件，安全机制也应该是核心功能，而不是仅存在于官方云服务里。
+
+## 十一、我建议怎样从零开始开发？
+
+不要直接用一个完整 Blender 替代品作为第一版验收标准。
+
+我建议选择一个能够同时验证几何内核、异步、并发和长程执行的纵向闭环。
+
+P0
+
+可编辑的基础建模引擎
+
+实现 Scene Graph、稳定对象 ID、操作协议、基本几何体、变换、布尔、版本快照，以及基础编辑器视口。
+
+验收：用户和脚本能通过同一个 API 编辑模型，并且撤销、保存、重新加载后的结果正确。
+
+P1
+
+Agent 原生操作闭环
+
+实现选择上下文、建模工具、操作验证、预览和事务提交。
+
+验收：Agent 能创建多部件模型，依据几何检查修复错误，并且保持后续可编辑。
+
+P2
+
+云端持久化与异步执行
+
+接入 Project API、对象存储、Temporal 与隔离 Worker。
+
+验收：关闭客户端、重启执行节点，任务可以恢复；已成功提交的结果不会重复创建。
+
+P3
+
+多 Agent 并发建模
+
+实现子任务 DAG、分支、冲突检测、增量合并和 Review Diff。
+
+验收：两个 Agent 同时修改不同部件时能够自动合并；竞争修改同一部件时不会静默覆盖。
+
+P4
+
+长程自主建模
+
+加入任务记忆、动态重规划、多轮验证、跨任务依赖、预算管理与人工审批。
+
+验收：跨多个执行周期完成复杂场景，即使进程中断，也能从可用检查点继续推进。
+
+## 十二、这套系统最值得投入研究的四个问题
+
+当基础架构逐渐成熟，我认为真正能决定这个开源项目价值的，将是以下问题：
+
+| 核心问题 | 研究方向 |
+| --- | --- |
+| Agent 如何理解现有 3D 场景？ | Scene Context、语义部件、空间查询、拓扑身份 |
+| 如何实现可证明正确的并发建模？ | ChangeSet、依赖检测、事务语义、几何合并 |
+| 如何让长程 Agent 持续改善设计？ | 持久状态、验证反馈、规划修正、预算最优化 |
+| 如何减少无谓的重新计算？ | Feature DAG、增量求值、内容寻址缓存、局部失效传播 |
+
+尤其是最后两个问题很有研究价值。
+
+例如，Agent 把城楼高度从 12 米改为 15 米。理想情况下，系统通过依赖图知道哪些支撑柱、楼梯和屋顶位置受到影响，然后只重新执行相关子图。
+
+这个机制会让 3D 建模 Agent 与增量计算系统建立深度联系：Agent 负责提出和修正意图，引擎负责最小化必要的计算并维护工程正确性。
+
+## 我建议的第一个真正完整的实验
+
+让两个 Agent 并发建造一套可编辑的三维建筑，允许用户在建造过程中修改需求，最后完成安全合并。
+
+这个实验可以同时暴露数据结构、几何拓扑、任务调度和 Agent 协作的问题。
+
+判定成功至少需要满足：
+
+1. 两个 Agent 能独立工作，并各自产出有版本记录的模型。
+2. 人工修改任务要求之后，Agent 能够识别受影响的依赖并调整计划。
+3. 一个 Worker 意外终止后，任务能利用检查点继续。
+4. 合并后的模型保留可编辑结构和必要的设计语义。
+5. 用户能查看每个 Agent 的变更、验证依据和最终提交结果。
+
+这个实验一旦成立，你就拥有了一个有实际架构价值的原型，可以继续扩展到复杂场景、生成式 3D、协同资产制作和开放插件生态。
+
+接下来最值得深入讨论的底层决定，是 Scene Kernel 与 Modeling IR 的关系。 我更倾向于把 Scene Graph 作为场景组织结构，把 Feature DAG 作为可执行的建模历史，把 Modeling IR 作为稳定命令协议，再让 Agent 和人类共同使用它们。这个决定会影响软件未来绝大多数功能，也值得在写大量代码之前把对象身份、依赖、事务和增量求值语义设计清楚。
+
+我们现在可以把这个决定提升为整个项目的第一份核心架构规范：
+
+# RFC-001：Agent-Native 3D Modeling Core
+
+架构基线确定
+
+Scene Graph 管理三维世界，Feature DAG 管理几何生成过程，Modeling IR 管理人类与 Agent 发起的修改。
+
+我建议再增加一个必不可少的基础设施：Revision Store（版本存储）。它负责把上述结构的变更原子化提交，支撑异步任务恢复和多 Agent 并发。
+
+这四个模块构成第一版真正需要自主掌握的内核。
+
+## 1. 首先确定数据所有权
+
+| 模块 | 唯一负责的事情 | 不应承担的事情 |
+| --- | --- | --- |
+| Scene Graph | 对象组织、父子关系、实例、变换、引用 | 直接计算几何布尔运算 |
+| Feature DAG | 参数、计算依赖、几何生成历史、增量重算 | 管理用户会话与云端任务 |
+| Modeling IR | 描述修改意图、目标、操作和约束 | 直接保存 GPU 对象或执行任意脚本 |
+| Revision Store | 工程版本、分支、提交、冲突、回滚 | 决定建模算法如何实现 |
+
+还要区分一种数据：Geometry Artifact（几何计算产物）。
+
+例如，Feature DAG 中的 `ExtrudeFeature` 是一条可编辑的计算定义；它执行后生成的网格是一个 Artifact。Scene Graph 通过几何绑定引用这个 Artifact。
+
+整个过程可以描述为：
+
+Human Editor
+
+视口、属性、快捷键
+
+Agent Runtime
+
+规划、工具、长程任务
+
+Modeling IR + Transaction Validator
+
+统一命令协议 · 类型检查 · 权限 · 前置条件
+
+Scene Graph
+
+对象层次与引用关系
+
+Feature DAG
+
+计算依赖与参数历史
+
+Geometry Evaluation Engine
+
+增量求值 · Kernel 调度 · Geometry Artifacts
+
+Revision Store
+
+验证 · 原子提交 · 版本快照 · 变更广播
+
+逻辑数据流。Scene Graph 与 Feature DAG 属于同一个版本化工程状态，几何求值产生候选产物，只有通过事务验证才能进入已提交版本。
+
+有四条需要从第一天起坚持的原则：
+
+1. 权威工程状态不存放在渲染器里。 Three.js、Blender 和未来的其他程序都是工程状态的视图或执行后端。
+2. 人类和 Agent 使用相同的修改协议。 可以有不同的高层工具，但最终必须走统一的验证与提交路径。
+3. 计算结果与建模定义分离。 修改参数能够重新求值，而不是只能在旧网格上继续破坏性修改。
+4. 未提交的后台计算不能修改主分支。 Agent 可以自由产生候选结果，但合并必须经过版本和冲突检查。
+
+## 2. Scene Graph：定义三维世界中存在什么
+
+先给一个实际例子。
+
+假设工程里有一座日本战国风格的城楼。
+
+```
+World
+└── Castle
+    ├── MainTower
+    │   ├── Foundation
+    │   ├── Walls
+    │   ├── Roof
+    │   │   ├── RoofLeft
+    │   │   └── RoofRight
+    │   └── Decorations
+    ├── Gate
+    └── Courtyard
+```
+
+这些节点描述了工程中的实体组织关系，不必与最终渲染的 Mesh 一一对应。
+
+`MainTower` 是一个逻辑组合节点，`Roof` 可以是程序化建模生成的结果，也可以包含多个 Mesh。
+
+### 2.1 Scene Node 数据模型
+
+我建议以稳定 ID 为身份，以路径为当前组织位置。
+
+```
+struct SceneNode {
+    id: NodeId,
+    name: String,
+    parent: Option<NodeId>,
+
+    kind: NodeKind,
+    transform: Transform,
+
+    geometry: Option<GeometryBinding>,
+    material: Option<MaterialId>,
+
+    visible: bool,
+    metadata: SceneMetadata,
+}
+```
+
+其中 `GeometryBinding` 可以有两种形式：
+
+```
+enum GeometryBinding {
+    FeatureOutput {
+        feature_id: FeatureId,
+        output_port: String,
+    },
+    StaticAsset {
+        asset_id: AssetId,
+    },
+}
+```
+
+第一种意味着几何来自可重新执行的 Feature DAG；第二种可以用于导入 GLB、扫描模型或尚无参数化历史的资源。
+
+Scene Node 不应持有一个庞大的顶点数组。几何数据应放到独立存储中，视口按需加载。
+
+### 2.2 ID 与 Path 必须分离
+
+例如：
+
+```
+NodeId: 01JA...7F2
+Path:   /World/Castle/MainTower/Roof
+```
+
+用户把 Roof 移动到新的父对象下面时，`Path` 会改变，`NodeId` 保持不变。
+
+这点非常重要。
+
+OpenUSD 原生场景标识依赖层级 Namespace Path；其官方文档也明确讨论了路径变更可能使外部覆盖引用失效的问题。我们自研稳定 ID 层，可以帮助内部 Feature 和 Agent 引用避免单纯依赖路径。
+
+[](https://www.google.com/s2/favicons?domain=https://openusd.org&sz=32)
+
+Universal Scene Description 27.02 documentation
+
+需要特别规定：场景的父子组织结构在第一版保持为树，资产实例通过独立的 Reference/Instance 关系表示。这样可以避免在同一个节点拥有多个父节点时，变换继承和权限判断产生歧义。
+
+### 2.3 场景节点需要同时服务于人类和 Agent
+
+Agent 查询：
+
+```
+get_node("MainTower/Roof")
+```
+
+底层应该先解析为稳定 ID，再返回：
+
+```
+{
+  "node_id": "roof-001",
+  "name": "Roof",
+  "kind": "procedural_geometry",
+  "parent_id": "tower-001",
+  "geometry_source": {
+    "feature_id": "roof-generator",
+    "output_port": "mesh"
+  },
+  "semantic_tags": [
+    "architecture",
+    "roof"
+  ]
+}
+```
+
+Agent 获得的是结构化、可操作的数据，而不需要根据截图猜测哪个 Mesh 是屋顶。
+
+## 3. Feature DAG：定义几何怎样被生成
+
+这是整套系统里最值得深入设计的结构。
+
+城楼屋顶的 Feature DAG
+
+Roof Profile
+
+轮廓曲线 · 尺寸参数
+
+Extrude / Loft
+
+生成三维屋顶主体
+
+Bevel
+
+边缘倒角处理
+
+Array Tiles
+
+沿屋顶表面生成瓦片实例
+
+Roof Output
+
+Mesh / Instance Set
+
+这里要明确区分两种历史：
+
+- 建模历史（Feature DAG）：现在的模型是怎样生成的、哪些参数和特征互相依赖。
+- 操作历史（Revision History）：谁在什么时间修改了哪个参数、创建或删除了什么节点。
+
+例如修改 `roof_width`，会改变 Feature DAG 的一个参数，然后触发其下游失效。修改这一参数的操作本身则形成一个新的 Revision。
+
+### 3.1 Feature Node 的基本结构
+
+```
+struct FeatureNode {
+    id: FeatureId,
+    op_type: OperationType,
+    op_version: u32,
+
+    inputs: Vec<InputBinding>,
+    parameters: ParameterMap,
+    outputs: Vec<OutputPort>,
+
+    execution: ExecutionPolicy,
+}
+```
+
+每个输入和输出都必须带有类型：
+
+```
+Geometry<Mesh>
+Geometry<BRep>
+Curve2D
+Scalar<Length>
+Scalar<Angle>
+Transform
+Material
+InstanceSet
+```
+
+例如，`BooleanSubtract` 不应接受一个 `Material` 作为几何输入；`Extrude` 必须明确是对二维轮廓、面还是其他支持的对象进行操作。
+
+类型检查应该在实际执行几何 Kernel 之前完成。
+
+### 3.2 Feature DAG 的关键不变量
+
+Feature DAG 必须满足：
+
+- 没有依赖环。
+- 所有输入引用有效。
+- 输入输出的几何类型匹配。
+- 每个操作有明确版本和执行环境要求。
+- 几何操作失败时不会污染上一次有效结果。
+- 无副作用的相同计算可以安全复用缓存。
+- 有副作用的外部任务被隔离在明确的执行边界外。
+
+对于某些建模算法，用户可能提出迭代求解或递归生成的需求。可以把它封装成具有明确终止条件的 Feature，而不是允许 Feature DAG 产生任意循环。
+
+### 3.3 Feature 的输出是不可变产物
+
+例如：
+
+```
+FeatureId: roof-bevel
+Parameters:
+  radius = 0.08
+
+Evaluation:
+  input  = geom_hash_A
+  output = geom_hash_B
+```
+
+用户把倒角半径改成 `0.12` 后：
+
+```
+FeatureId: roof-bevel
+Parameters:
+  radius = 0.12
+
+Evaluation:
+  input  = geom_hash_A
+  output = geom_hash_C
+```
+
+Feature 的逻辑身份不变，求值结果变为新的 Artifact。
+
+这让系统能够保留旧版结果、实现分支比较、并发验证以及按需回滚。
+
+## 4. Modeling IR：让 Agent 与人类共享统一的修改语言
+
+我建议 Modeling IR 采用类型化命令协议 + 原子变更集的形式。
+
+它要解决的是：
+
+> 不论用户通过鼠标修改模型，还是 Agent 通过自然语言发出指令，系统最终都能得到一份可检查、可记录、可重放的修改请求。
+> 
+
+举一个例子。
+
+用户说：
+
+“把城楼屋檐向外延伸 35 厘米，保持对称。”
+
+Agent 理解需求后，不应该直接修改一个 Blender Mesh，而是构造一份 Modeling IR Transaction。
+
+```
+{
+  "schema_version": "1.0",
+  "transaction_id": "tx-204",
+  "actor": {
+    "type": "agent",
+    "id": "agent-17"
+  },
+  "base_revision": "rev-42",
+  "commands": [
+    {
+      "type": "feature.set_parameter",
+      "target": {
+        "feature_id": "roof-generator"
+      },
+      "parameter": "eave_extension",
+      "value": {
+        "type": "length",
+        "meters": 0.35
+      },
+      "expected_feature_revision": 8
+    }
+  ],
+  "validation": [
+    {
+      "type": "geometry.is_valid",
+      "node_id": "roof-001"
+    },
+    {
+      "type": "constraint.symmetry",
+      "node_id": "roof-001",
+      "axis": "x",
+      "tolerance_meters": 0.001
+    }
+  ]
+}
+```
+
+示例里的 ID 和版本号只是协议设计示意。
+
+这份 IR 可以被：
+
+1. 验证器检查权限、目标、类型和前置条件。
+2. 事务引擎应用到候选工程版本。
+3. Feature Evaluator 找出受影响的计算节点。
+4. 几何 Kernel 重新求值。
+5. Validator 检查结果。
+6. Revision Store 提交新版本。
+
+### 4.1 为什么 Modeling IR 不直接保存 Mesh？
+
+因为 IR 描述的是修改意图和操作，Mesh 是操作的结果。
+
+如果直接让 Agent 传入几十万个顶点，系统很难知道这些顶点为什么被修改，也无法可靠地做局部重算和语义合并。
+
+当然，仍然需要 `mesh.replace_geometry`、`mesh.edit_vertices` 等底层命令来支持雕刻、手动顶点编辑和外部生成模型。只是这些命令的能力边界、版本校验和可编辑性等级应当明确。
+
+### 4.2 第一版应该支持哪些命令？
+
+我建议从下面这一组最小命令开始。
+
+| 命令 | 用途 |
+| --- | --- |
+| `scene.create_node` | 创建对象 |
+| `scene.delete_node` | 删除对象 |
+| `scene.reparent_node` | 调整层级 |
+| `scene.set_transform` | 修改位置、旋转、缩放 |
+| `feature.create` | 创建建模特征 |
+| `feature.connect` | 连接输入与输出 |
+| `feature.set_parameter` | 修改建模参数 |
+| `feature.delete` | 删除特征 |
+| `scene.bind_geometry` | 将特征结果绑定到对象 |
+| `material.assign` | 绑定材质 |
+| `asset.import` | 导入外部资源 |
+| `constraint.create` | 创建约束 |
+
+此外，事务应该支持一次包含多个命令。例如创建一根柱子需要同时创建 Scene Node、Feature Node 和 Geometry Binding。这几项必须一起成功或一起失败。
+
+### 4.3 Command、Event 和 Revision 不是同一个东西
+
+这三个概念需要明确：
+
+Command 是请求做什么。它可能被拒绝，也可能执行失败。
+
+Event 是已经被确认发生的事实，例如某个参数从 `0.2` 改为 `0.35`。
+
+Revision 是成功提交之后可以再次加载的工程版本。
+
+所以不要把收到的每一条 Modeling IR 都直接追加到权威工程日志里，并假设它已生效。
+
+建议实现：
+
+```
+Command
+   ↓
+Validate
+   ↓
+Apply to Candidate State
+   ↓
+Evaluate + Check
+   ↓
+Commit
+   ├── Revision
+   ├── ChangeSet
+   └── Committed Events
+```
+
+失败请求则保存在任务尝试日志中，不能伪装成工程的有效修改。
+
+## 5. 增量计算：Feature DAG 为什么值得自主研发？
+
+这一点会直接影响大型场景和 Agent 长程运行的成本。
+
+假设城楼有如下依赖：
+
+```
+Tower Parameters
+  ├── Foundation
+  ├── Walls
+  │    └── Windows
+  └── Roof Profile
+       ├── Roof Mesh
+       └── Tile Layout
+            └── Tile Instances
+```
+
+用户只修改瓦片材质。
+
+正常情况下，墙体、地基、屋顶几何和瓦片位置都不需要重新计算。
+
+如果用户修改屋顶曲面，则屋顶网格和瓦片排列需要失效，但墙体等无依赖部分可以保留。
+
+### 5.1 Dirty Propagation
+
+建议 Feature Evaluator 使用以下过程：
+
+```
+1. 接收 ChangeSet
+2. 找出直接变化的 Feature 输入
+3. 沿依赖图传播失效标记
+4. 拓扑排序所有待求值节点
+5. 检查既有缓存是否仍可使用
+6. 并发执行相互独立的计算
+7. 保存不可变输出 Artifact
+8. 更新候选场景的几何绑定
+```
+
+还应提供一个优化：如果某个 Feature 重新计算后的内容哈希与旧结果一致，就可以停止对依赖其输出的下游节点进行不必要的失效传播，前提是所有相关输出语义都保持一致。
+
+### 5.2 内容寻址缓存
+
+理想的 Feature 缓存键可以抽象为：
+
+\[
+K = H(T, V, P, I, E)
+\]
+
+其中：
+
+- \(T\)：Feature 操作类型。
+- \(V\)：操作的实现与协议版本。
+- \(P\)：规范化后的参数。
+- \(I\)：所有输入 Artifact 的内容标识。
+- \(E\)：影响结果的执行环境，例如 Kernel 版本、算法配置、随机种子及必要的数值模式。
+
+系统先查询 `K` 是否已有可复用结果。
+
+有缓存就直接引用。没有缓存就执行计算，将新产物存入 Geometry Artifact Store。
+
+需要明确哪些 Feature 可以被认定为可缓存的纯计算。依赖实时外部服务、当前时间或非固定随机性的操作不能直接按相同规则复用。
+
+### 5.3 并发应从依赖关系中自然产生
+
+假设三个 Feature 没有依赖关系：
+
+```
+FoundationGenerator
+WallGenerator
+RoofGenerator
+```
+
+Evaluator 可以将它们同时分配给三个 Worker。
+
+如果 `TileGenerator` 依赖 `RoofGenerator`，则必须等待后者完成。
+
+这意味着并发度来自 DAG 的拓扑结构与资源约束，而不只是人为规定“启动四个 Agent”。
+
+更准确地说，系统存在两个 DAG：
+
+| DAG | 负责什么 |
+| --- | --- |
+| Feature DAG | 模型的计算依赖 |
+| Task DAG | Agent 的规划、任务分配和工作依赖 |
+
+一个 Agent Task 可能执行多个 Feature 操作；一个 Feature 的重算也可能由不同任务触发。
+
+这两个 DAG 可以关联，但不能混为一体。
+
+## 6. 拓扑身份：我们必须在第一版定下失败处理机制
+
+这是我认为最容易被低估的底层难题。
+
+假设屋顶具有 24 个面。Agent A 选择 `Face_12` 添加装饰，Agent B 同时修改屋顶挤出形状。重新生成几何后，`Face_12` 可能不存在，也可能指向另一个面。
+
+FreeCAD 的 Topological Naming Problem 文档就描述了这类问题：建模操作改变内部拓扑命名时，下游依赖可能失效或指向错误位置。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
+我建议按照引用稳定性，设计三个等级。
+
+| 引用方式 | 示例 | 稳定性 |
+| --- | --- | --- |
+| 对象级 | `node_id = roof-001` | 相对容易保持稳定 |
+| 特征级 | `feature_id = roof-generator` | 参数变化后仍可定位计算定义 |
+| 子拓扑级 | `roof.top_outer_edge` | 需要额外追踪或重新解析 |
+
+子拓扑引用应优先采用“生成特征 + 语义角色”的方式，例如：
+
+```
+{
+  "feature_id": "roof-generator",
+  "output_port": "mesh",
+  "subshape": {
+    "role": "outer_eave_edge",
+    "side": "east"
+  }
+}
+```
+
+但这种语义引用也不是万能的。
+
+如果几何变化之后出现两个同样满足条件的边，系统应该返回 `AMBIGUOUS_TOPOLOGY_REFERENCE`，让 Agent 重新查询并验证，必要时请求用户确认。
+
+最初可以实现以下机制：
+
+- 特征输出的语义命名。
+- 对象/特征级稳定 ID。
+- 由 Geometry Kernel 提供的拓扑来源与演化映射。
+- 子拓扑引用的版本校验。
+- 重新求值后引用完整性检查。
+- 失效时显式报告，而不是悄悄匹配到另一条边。
+
+这比一开始试图彻底解决任意网格编辑中的永久拓扑身份更务实。
+
+## 7. Revision Store：怎样让多个 Agent 真正并发建模？
+
+这里我们需要一种适合三维工程的事务模型。
+
+我建议采用：
+
+MVCC（多版本并发控制） + 乐观事务 + 特征依赖验证 + 分支合并。
+
+它有一个特别重要的性质：Agent 不需要锁住整个工程才能工作。
+
+### 7.1 实际运行过程
+
+假设用户当前处于 `Revision 42`。
+
+Revision 42 · Castle
+
+Agent A
+
+修改主城楼
+
+Branch A
+
+Agent B
+
+创建庭院
+
+Branch B
+
+Human
+
+修改灯光
+
+Main
+
+Transaction Merge Engine
+
+比较读写依赖 · 检查冲突 · 重算受影响特征
+
+Revision 45 · Merged Castle
+
+如果三者修改的内容相互独立，系统就可以合并。
+
+如果 Agent A 和用户同时修改屋顶高度，就必须判断是否存在冲突。
+
+但是冲突检测不应仅限于“是不是修改同一个对象”。
+
+例如：
+
+- Agent A 修改城楼高度。
+- Agent B 根据城楼高度重新计算楼梯数量。
+
+虽然修改的是不同对象，B 的计算却依赖 A 修改的数据。
+
+因此，事务需要记录实际的读取依赖、写入目标和版本条件。
+
+### 7.2 冲突类型与处理策略
+
+| 冲突类型 | 例子 | 处理方式 |
+| --- | --- | --- |
+| Write–Write | 两者都修改屋顶高度 | 冲突，重新规划或人工选择 |
+| Read–Write | 楼梯计算依赖的楼高被修改 | 重新求值并重新验证 |
+| Structural | 一个 Agent 删除另一个 Agent 的目标节点 | 拒绝旧事务，重新定位 |
+| Topological | 面索引在另一个操作之后失效 | 拓扑重映射或请求确认 |
+| Constraint | 两个修改各自合法，合并后产生穿模 | 合并后整体验证 |
+
+需要允许低风险的独立属性修改自动合并，同时防止逻辑依赖冲突。
+
+### 7.3 版本提交应当是原子的
+
+一次提交可以按以下方式实现：
+
+```
+1. 读取当前 branch head
+2. 构造候选工程状态
+3. 执行必需的几何计算
+4. 把新 Artifact 上传到临时/内容寻址存储
+5. 执行几何、引用和约束验证
+6. 在数据库事务中：
+   - 检查当前 branch head
+   - 校验读写依赖
+   - 写入 Revision / ChangeSet
+   - 更新 branch head
+7. 提交成功后广播 Scene Diff
+```
+
+如果第 6 步发现冲突，已生成的几何 Artifact 可以作为候选结果保留或交由垃圾回收，但不会改变主分支。
+
+这里还需要针对数据库提交、对象存储及事件发布之间的故障窗口，设计 Outbox 或等价的可靠事件机制。
+
+## 8. 长程 Agent 如何建立在这个内核之上？
+
+Agent 的长期工作状态不应塞进 Scene Graph 或 Feature DAG。
+
+它需要自己的持久化 Task Runtime。
+
+例如：
+
+```
+Task: BuildJapaneseCastle
+ │
+ ├── GoalSpec
+ ├── Constraints
+ ├── Plan DAG
+ ├── Current Branch
+ ├── Completed Steps
+ ├── Pending Steps
+ ├── Failed Attempts
+ ├── Evaluation Reports
+ ├── Budget
+ └── Human Review Requests
+```
+
+这样 Agent 可以持续执行下面的循环：
+
+```
+读取目标和当前版本
+        ↓
+检查任务计划
+        ↓
+选择可执行子任务
+        ↓
+生成 Modeling IR
+        ↓
+提交到候选分支
+        ↓
+几何求值与验证
+        ↓
+记录结果与新版本
+        ↓
+更新计划
+        ↓
+继续或等待用户
+```
+
+云端 Worker 故障之后，新的 Worker 读取工作流状态与最近的工程 Revision，恢复尚未完成的步骤。
+
+这里还需要管理工作流历史的增长。Temporal 官方建议长程 Workflow 使用 Continue-As-New 控制历史长度，避免传递大量数据，几何文件和渲染产物应放在外部存储，只在工作流中传递引用。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.temporal.io&sz=32)
+
+Temporal Documentation
+
++1
+
+所以我们最终得到两个相互独立的持久化体系：
+
+- Project Revision 记录三维工程如何演化。
+- Agent Execution History 记录任务如何推进、失败和恢复。
+
+这使得一个 Agent Run 可以跨越多个 Project Revision，也允许同一个工程同时运行多个 Agent Run。
+
+## 9. 人类交互如何共享同一套架构？
+
+需要特别处理实时操作和异步操作的差异。
+
+用户用鼠标拖动 Gizmo 时，可能每秒产生大量临时变换。如果每一帧都生成正式 Revision，版本库将充斥大量无意义提交。
+
+我建议设计两层状态：
+
+Transient Preview State：鼠标拖动、参数滑块连续变化、Agent 实时预览，都可以在本地或隔离的候选状态中更新。
+
+Committed Project State：用户松开鼠标、确认参数，或者 Agent 完成一个原子操作时，才向 Modeling IR 提交最终命令。
+
+例如：
+
+```
+Pointer Down
+   ↓
+Drag 100 frames
+   ↓
+Preview Transform Updates
+   ↓
+Pointer Up
+   ↓
+Modeling IR: scene.set_transform
+   ↓
+Validated Revision Commit
+```
+
+这样既能保持视口流畅，又能让人类与 Agent 共享同一套操作语义。
+
+软件还可以让 Agent 在独立 Preview Branch 中展示修改过程；用户看到满意的结果后再合并，不影响当前编辑。
+
+## 10. 第一版内核的 API 边界
+
+现在已经可以定义一个很小、但足够稳定的内核接口：
+
+```
+trait SceneRepository {
+    fn get_snapshot(&self, revision: RevisionId)
+        -> Result<SceneSnapshot>;
+
+    fn resolve_node(&self, id: NodeId)
+        -> Result<SceneNode>;
+}
+
+trait ModelingValidator {
+    fn validate(&self, tx: &ModelingTransaction,
+                base: &ProjectSnapshot)
+        -> ValidationResult;
+}
+
+trait FeatureEvaluator {
+    fn evaluate(&self, plan: &EvaluationPlan)
+        -> EvaluationResult;
+}
+
+trait RevisionRepository {
+    fn try_commit(&self, candidate: CandidateRevision)
+        -> CommitResult;
+}
+```
+
+这是接口草案，尚未涉及 Rust 的具体生命周期和异步实现。
+
+我会要求几何执行后端只接收结构化输入、产出 Artifact 和诊断结果。它不应该持有直接改写权威项目数据库的权限。
+
+这一点可以让你以后自由更换 Manifold、OCCT、Blender 和生成式建模后端。
+
+Manifold 已经提供 C++、Python、JS/WASM 以及 Rust 相关集成途径，适合作为早期 Mesh Kernel 的候选。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
+## 11. 建立第一批架构测试
+
+相比立即开发完整的建模工具栏，我更建议先做六项自动化测试。
+
+| 测试 | 必须满足的条件 |
+| --- | --- |
+| Scene Identity | 节点移动、重命名后 ID 不变 |
+| Feature Recompute | 修改上游参数，只重算实际受影响的子图 |
+| Cache Reuse | 相同规范化输入与执行环境可复用结果 |
+| Transaction Atomicity | 多命令事务失败时不产生部分提交 |
+| Concurrent Merge | 独立修改可合并，冲突修改不发生静默覆盖 |
+| Crash Recovery | Worker 终止后能从已提交版本与任务检查点恢复 |
+
+拓扑引用还需要专门的回归测试：通过挤出、布尔、倒角、细分等操作让网格发生变化，检查旧引用能否被正确保留、迁移或明确判定失效。
+
+这六项测试能够持续验证最初的架构选择。
+
+## 12. 具体的研发起点
+
+我建议第一个可执行版本先完成以下垂直切片：
+
+首个开发里程碑：Parametric Scene Core
+
+- [ ]  
+    
+    定义 NodeId、FeatureId、RevisionId、ArtifactId
+    
+- [ ]  
+    
+    实现 Scene Graph 与父子关系约束
+    
+- [ ]  
+    
+    实现 Feature DAG 与类型化输入输出端口
+    
+- [ ]  
+    
+    实现 create / transform / extrude / boolean 最小操作集
+    
+- [ ]  
+    
+    实现 Modeling IR 解析与原子事务
+    
+- [ ]  
+    
+    实现增量求值与简单内容寻址缓存
+    
+- [ ]  
+    
+    实现 Revision 快照和分支提交
+    
+- [ ]  
+    
+    接入 Three.js 视口和基础几何预览
+    
+
+0 / 8 已完成
+
+复制任务清单
+
+做到这里，即使还没有接入 LLM，我们也已经拥有一个可以通过结构化指令创建、编辑、重新计算和版本管理三维模型的程序。
+
+Agent 只需要在此基础上增加意图理解、任务规划、工具调用与自主验证能力。
+
+## 我想特别保留的一个架构判断
+
+这套软件的核心研究对象可以进一步定义为：一个支持增量计算、事务一致性和长期自主执行的三维世界编辑系统。
+
+如果未来有十个 Agent 同时操作一座城堡，系统最关键的能力是确保它们处理的是同一个可追踪、可重算、可验证的工程世界。
+
+这套基础设施也能支持后续扩展，例如多智能体游戏场景生成、程序化城市、复杂资产生产、机器人仿真场景，乃至更大尺度的交互式三维世界。
+
+我建议下一步就进入 RFC-002：Scene Kernel 的实际数据模型和存储引擎设计，集中解决以下三个工程问题：Scene Graph 与 Feature DAG 的对象如何保存在内存和磁盘里；Geometry Artifact 如何在 CPU、GPU 和云端之间共享；当一个 Feature 变化时，怎样在毫秒级识别依赖失效并调度增量重算。
+
+这部分做扎实之后，才真正适合开始写最底层的 Rust 核心代码。
+
+# RFC-002：Scene Kernel 数据模型、存储引擎与增量计算架构
+
+架构草案 v0.1
+
+Agent-Native 3D Modeling System · 2026-10-26
+
+这份 RFC 承接 RFC-001 已确定的架构：
+
+- Scene Graph：管理场景组织结构。
+- Feature DAG：管理可执行的建模历史和计算依赖。
+- Modeling IR：人类与 Agent 共用的命令协议。
+- Revision Store：管理工程版本、事务与分支。
+- Geometry Artifact Store：管理几何计算产生的不可变数据。
+
+本次设计将进一步确定三个核心问题：
+
+1. Scene Graph 和 Feature DAG 在内存中采用什么结构，怎样持久化、加载和恢复？
+2. Geometry Artifact 怎样在 CPU 内存、GPU 显存、磁盘和不同云端 Worker 之间流动？
+3. Feature 发生变化时，怎样快速识别失效范围，复用旧结果，并以最少的计算更新场景？
+
+## 0. 架构决议摘要
+
+我建议采用 版本化场景数据库 + 内容寻址几何存储 + 增量数据流执行引擎。
+
+这三个系统拥有不同的性能与一致性要求，因此应分开实现。
+
+| 系统 | 核心数据结构 | 持久化方案 | 性能目标 |
+| --- | --- | --- | --- |
+| Scene Graph | 紧凑节点表 + 层级索引 | 分块不可变快照 | 快速定位对象和更新局部结构 |
+| Feature DAG | 节点表 + 正反邻接索引 | 分块快照 + 变更记录 | 毫秒级分析局部依赖 |
+| Revision Store | 不可变 Revision + 可变 Branch Head | SQLite / PostgreSQL | 原子提交、可靠恢复 |
+| Geometry Store | Artifact Manifest + 二进制 Chunk | 本地 CAS / S3 兼容存储 | 去重、按需读取和缓存 |
+| Incremental Evaluator | Dirty Set + Ready Queue + Action Cache | 内存索引 + 持久化缓存 | 最小化重复计算 |
+| GPU Resource Manager | Buffer Handle + Residency Table | 显存缓存，磁盘可重建 | 高效上传、回收和复用 |
+
+这里的毫秒级专指已经驻留在内存中的依赖索引，识别一项修改影响了哪些 Feature，并生成可执行的调度计划。
+
+它不代表布尔运算、网格重建、GPU 数据上传或者云端模型推理都能在几毫秒内完成。
+
+### 0.1 数据所有权
+
+我们需要从一开始就坚持一个原则：
+
+持久化的建模定义是权威状态，几何求值结果是不可变产物，GPU Buffer 是可随时销毁并重新创建的运行时资源。
+
+也就是说：
+
+- 重新启动渲染器，不丢失工程。
+- 重新启动 Geometry Worker，不丢失已提交的建模定义。
+- GPU 显存被释放，不丢失已经持久化的几何产物。
+- Agent 中断后，可以从工程 Revision 和任务 Checkpoint 恢复。
+
+这会决定整个系统的可靠性。
+
+## 1. 总体存储架构
+
+用户端 / Agent Runtime
+
+Modeling IR · 交互预览 · 并发任务 · 版本订阅
+
+Scene Kernel · Rust
+
+Scene Store
+
+节点索引 / 层级查询
+
+Feature Store
+
+依赖索引 / DAG 验证
+
+Transaction Engine
+
+修改检查 / 候选快照
+
+Incremental Evaluator
+
+失效传播 / 调度计划
+
+Revision Database
+
+SQLite / PostgreSQL
+
+Branches、Revisions、ChangeSets、Commit Outbox
+
+Content Store
+
+Disk CAS / MinIO / S3
+
+Graph Chunks、Geometry Blobs、Textures、Manifests
+
+Runtime Caches
+
+CPU Cache
+
+GPU Cache
+
+Worker Cache
+
+权威版本由 Revision Database 和持久化内容存储共同定义；进程内索引和 CPU/GPU 缓存可在故障后重建。
+
+这套架构受到三个成熟领域的启发：
+
+- OpenUSD 将场景描述与组合后的 Stage 分离，并利用紧凑二进制结构支持大场景的延迟加载。
+    
+    [](https://www.google.com/s2/favicons?domain=https://openusd.org&sz=32)
+    
+    Universal Scene Description 27.02 documentation
+    
+    +1
+    
+- Bazel Remote Execution API 将内容寻址存储（CAS）与执行结果缓存（Action Cache）明确区分，使多个 Worker 能共享计算产物。
+    
+    [](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+    
+    GitHub
+    
+    +1
+    
+- Rust 的 Salsa 增量计算框架采用 revision tracking 和 red-green 算法，在输入改变时检查下游计算是否真正需要重新执行。
+    
+    [](https://www.google.com/s2/favicons?domain=https://salsa-rs.github.io&sz=32)
+    
+    Salsa
+    
+
+我们可以借鉴这些经过实践的思想，但仍然需要自研面向几何拓扑、场景编辑和分布式事务的部分。
+
+# 第一部分：Scene Graph 与 Feature DAG 的内存模型
+
+## 2. 不要把磁盘对象直接用作内存对象
+
+一个常见的初始实现可能是：
+
+```
+struct SceneNode {
+    id: Uuid,
+    children: Vec<Box<SceneNode>>,
+    geometry: Option<Mesh>,
+}
+```
+
+这非常容易写，但它不适合作为长期目标。
+
+问题在于：节点的所有权与层级树强绑定；任意子节点访问需要遍历或额外索引；大型 Geometry 可能混入场景结构；多版本快照和并发访问变得复杂。
+
+我建议采用 稳定外部 ID + 紧凑内部 Handle + 分离式组件存储。
+
+## 2.1 外部 ID 与内部 Handle
+
+外部身份用于持久化、网络、Agent 工具和跨进程引用。
+
+```
+struct NodeId(Uuid);
+struct FeatureId(Uuid);
+struct RevisionId(Uuid);
+```
+
+内部 Handle 用于进程内快速定位，例如：
+
+```
+struct NodeHandle {
+    slot: u32,
+    generation: u32,
+}
+```
+
+内部 Handle 可以包含数组槽位和世代号。对象删除后，槽位可以复用，`generation` 用来检测旧 Handle 是否失效。
+
+Rust 的 `slotmap` crate 已有类似的 generational key 与 SecondaryMap 机制，可以作为实现参考，不需要自行发明完整的槽位分配算法。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.rs&sz=32)
+
+Rust
+
+注意：内部 Handle 永远不能持久化为跨 Revision 的对象身份。重新加载或压缩内存后，同一对象可能得到新的 Handle。
+
+### 2.2 Scene Store 采用分离式结构
+
+我建议使用混合的 AoS/SoA 设计。
+
+稳定的逻辑对象集中保存，访问频繁的组件拆分存储。
+
+```
+struct SceneStore {
+    nodes: SlotMap<NodeHandle, NodeRecord>,
+
+    id_index: HashMap<NodeId, NodeHandle>,
+
+    hierarchy: HierarchyIndex,
+
+    transforms: SecondaryMap<NodeHandle, Transform>,
+
+    geometry_bindings:
+        SecondaryMap<NodeHandle, GeometryBinding>,
+
+    materials:
+        SecondaryMap<NodeHandle, MaterialId>,
+}
+```
+
+上面是概念接口，实际使用 `slotmap` 时可以通过生成的 Key 类型避免重复定义内部 Handle。
+
+其中 `NodeRecord` 保持轻量：
+
+```
+struct NodeRecord {
+    id: NodeId,
+    name: StringId,
+    kind: NodeKind,
+    metadata_ref: Option<MetadataId>,
+}
+```
+
+### 为什么分离 Transform？
+
+因为视口非常频繁地读取和更新 Transform，而名称、语义标签、权限元数据通常不会在每一帧发生变化。
+
+可以进一步将 Transform 缓存整理为适合顺序读取的紧凑数组。
+
+但是 V1 不必为所有字段使用严格 SoA。过早拆成大量数组会增加实现复杂度，也可能降低某些整体节点操作的局部性。
+
+## 2.3 Hierarchy Index
+
+我建议 Scene Graph 的父子关系采用：
+
+```
+struct HierarchyIndex {
+    parent: Vec<Option<NodeHandle>>,
+    children: Vec<Vec<NodeHandle>>,
+}
+```
+
+这里按内部槽位建立索引，并根据世代号检查有效性。
+
+对于第一版，`Vec<Vec<...>>` 足够直观。后续如果场景规模非常大，可以改为压缩邻接数组或者分块邻接表。
+
+需要支持的核心操作：
+
+| 操作 | 主要数据结构 | 预期复杂度 |
+| --- | --- | --- |
+| 根据 NodeId 定位节点 | HashMap | 平均 O(1) |
+| 查询父节点 | Parent Index | O(1) |
+| 查询直接子节点 | Children Index | O(1) 定位，O(k) 遍历 |
+| 遍历整个子树 | 邻接索引 | O(子树节点数) |
+| 节点重命名 | NodeRecord | O(1) 级索引修改，另计名称索引 |
+| 节点重新挂载 | Parent/Children | 需检测环，并更新相关派生状态 |
+
+复杂度只是算法层面的期望，不包含锁、内存分配、缓存缺失及多版本复制成本。
+
+### 2.4 Scene Graph 需要管理 Instance
+
+假设城楼上有 300 片相同的瓦片。
+
+我们不应该创建 300 份完全独立的顶点数组。
+
+可以设计：
+
+```
+struct InstanceRecord {
+    source: AssetOrNodeRef,
+    transform: Transform,
+    material_override: Option<MaterialId>,
+}
+```
+
+300 个实例可以引用同一 Geometry Artifact，只保存各自的变换和必要覆盖属性。
+
+未来的大型建筑、森林、城市、游戏场景会大量依赖这种机制。
+
+## 3. Feature DAG 在内存中的表示
+
+Feature DAG 与 Scene Graph 的访问模式不同。
+
+Scene Graph 常见操作是层级遍历、选取和 Transform 更新；Feature DAG 最重要的是快速找到下游依赖。
+
+因此，除了正向依赖，还应建立反向索引。
+
+### 3.1 Feature Record
+
+```
+struct FeatureRecord {
+    id: FeatureId,
+
+    operation: OperationDescriptor,
+
+    inputs: Vec<InputBinding>,
+    parameters: ParameterBlock,
+
+    outputs: Vec<OutputDescriptor>,
+
+    execution_policy: ExecutionPolicy,
+}
+```
+
+我建议将参数集中在类型化 `ParameterBlock` 中，而不是在执行热路径反复解析通用 JSON。
+
+IR 的 JSON/Protobuf 可以在进入 Kernel 时转换为内部的紧凑表示。
+
+### 3.2 正反依赖索引
+
+```
+struct FeatureGraphIndex {
+    dependencies:
+        HashMap<FeatureId, Vec<FeatureId>>,
+
+    dependents:
+        HashMap<FeatureId, Vec<FeatureId>>,
+
+    topo_rank:
+        HashMap<FeatureId, u32>,
+}
+```
+
+含义如下：
+
+```
+dependencies[B] = [A]
+```
+
+表示 B 的计算依赖 A。
+
+```
+dependents[A] = [B, C]
+```
+
+表示 A 发生变化时，需要检查 B 和 C。
+
+这两个索引的职责非常明确：
+
+- 正向依赖用于判断一个 Feature 是否可以运行。
+- 反向依赖用于快速传播失效。
+- 拓扑信息用于组织执行顺序、检测环。
+
+不过 `FeatureId → FeatureId` 还不够精细。最终依赖边最好包含具体的输入、输出端口：
+
+```
+struct DependencyEdge {
+    producer: FeatureId,
+    output_port: PortId,
+
+    consumer: FeatureId,
+    input_port: PortId,
+}
+```
+
+这样修改一个 Feature 的材质输出，不必使只依赖其几何输出的消费者全部失效。
+
+### 3.3 场景依赖与计算依赖需要区分
+
+有一种容易忽略的情况：
+
+某个 Feature 并没有连接到另一 Feature，但它读取了一个 Scene Node 的 Transform。
+
+例如楼梯生成器需要读取城楼的世界坐标。
+
+所以实际依赖图不能仅包含 Feature 之间的边。
+
+我建议引入统一的 Dependency Key：
+
+```
+enum DependencyKey {
+    FeatureOutput(FeatureId, PortId),
+    FeatureParameter(FeatureId, ParamId),
+    SceneProperty(NodeId, PropertyId),
+    AssetContent(ArtifactId),
+    ExternalResource(ResourceId),
+}
+```
+
+这样 `scene.set_transform` 也可以触发正确的几何重算。
+
+初期可以保守记录 Feature 的显式依赖；以后再引入动态读集追踪，使失效粒度进一步缩小。
+
+# 第二部分：场景和建模历史怎样持久化到磁盘？
+
+## 4. 采用不可变快照与增量变更集
+
+我不建议每次修改都序列化整个 Scene Graph。
+
+例如，一个工程包含 100 万个节点，用户只是调整其中一座塔楼的位置。完整重写所有节点将产生不必要的磁盘 I/O、网络流量和版本存储成本。
+
+建议采用三个层次：
+
+| 层次 | 内容 | 修改方式 |
+| --- | --- | --- |
+| Logical Record | SceneNode、FeatureNode、Constraint 等 | 通过 Modeling IR 修改 |
+| Immutable Chunk | 一组序列化后的 Record | 内容变化时生成新 Chunk |
+| Snapshot Manifest | 工程 Revision 对全部 Chunk 的引用 | 使用新的 Manifest 代表新快照 |
+
+再配合提交的 ChangeSet，保存用户和 Agent 的修改历史。
+
+### 4.1 为什么采用分块？
+
+假设一个工程存在 65,536 个节点，我们把 NodeId 按稳定哈希分成 256 个逻辑分区。
+
+每个分区平均约 256 个节点。
+
+一个节点变化时，只需要重新序列化其所在的分区，以及引用该分区的快照清单。
+
+Revision 100 → Revision 101
+
+旧版本
+
+Chunk A
+
+Chunk B
+
+Chunk C
+
+Chunk D
+
+新版本
+
+Chunk A
+
+Chunk B
+
+Chunk C′
+
+Chunk D
+
+A、B、D 可以继续引用已有 Blob；只有 C 变成新的不可变 Chunk C′。两个 Revision 通过各自的 Manifest 引用它们。
+
+256 只是第一版的分区设计参数，不能直接当作最佳值。真实系统应按序列化字节量、节点数量和修改局部性测试。
+
+因为如果一个 Chunk 已有 100 MB，修改一个小节点仍然需要重写整块数据。
+
+### 4.2 推荐从固定分桶发展到持久化树
+
+V1 可以使用：
+
+```
+NodeId → hash(NodeId) → BucketId
+```
+
+每个 Bucket 保存规范化排序的节点记录。
+
+长期可以演进为：
+
+```
+Snapshot Root
+   ├── Scene Root
+   │     ├── Node Shard 0
+   │     ├── Node Shard 1
+   │     └── ...
+   │
+   ├── Feature Root
+   │     ├── Feature Shard 0
+   │     └── ...
+   │
+   ├── Constraint Root
+   └── Asset Reference Root
+```
+
+这是一个类似 Merkle DAG 的结构。每个不可变块使用其规范化内容的哈希作为地址。
+
+它有几个直接的优势：
+
+- 相同内容只需存储一次。
+- 不同 Revision 可以共享大多数 Chunk。
+- 获取某个 Revision 时，不必立即加载全部 Geometry。
+- 可以按照内容哈希检测损坏。
+- 多个 Worker 可以通过 Manifest 获取相同的工程输入。
+
+V1 先实现固定分桶和 Root Manifest，等到真实负载证明分桶粒度成为瓶颈，再加入多层目录或自适应分片。
+
+### 4.3 快照格式草案
+
+```
+{
+  "schema_version": 1,
+  "revision_id": "rev-101",
+  "scene_root": {
+    "hash": "sha256:...",
+    "bucket_count": 256
+  },
+  "feature_root": {
+    "hash": "sha256:...",
+    "bucket_count": 256
+  },
+  "constraint_root": {
+    "hash": "sha256:..."
+  },
+  "units": {
+    "length": "meter",
+    "angle": "radian"
+  },
+  "coordinate_system": {
+    "up": "Z",
+    "handedness": "right"
+  }
+}
+```
+
+此处省略的哈希是示意字段，并非实际生成的数据。
+
+正式格式还需要加入应用兼容版本、插件 Schema 版本、根场景 ID 和必要的资产命名空间信息。
+
+### 4.4 磁盘序列化格式的选择
+
+我建议区分外部协议和内部存储格式。
+
+| 数据类型 | V1 方案 |
+| --- | --- |
+| Modeling IR 网络接口 | Protobuf 或 JSON Schema |
+| Scene/Feature Record | Protobuf 二进制编码 |
+| Manifest | 规范化二进制编码，提供 JSON 调试导出 |
+| 大型 Mesh Buffer | 自定义带版本的紧凑二进制布局 |
+| B-Rep | Kernel 原生持久化格式 + 版本信息 |
+| 对外资产 | glTF/GLB、USD、STEP 等格式适配 |
+
+Protobuf 易于跨语言使用，支持字段演进。需要注意，它的普通序列化结果不能未经约束就作为永久的规范化内容哈希输入。
+
+我们需要规定字段顺序、集合排序、默认值处理、浮点表示和 Schema 版本。或者为哈希另设 canonical encoding。
+
+尤其要处理：
+
+- `0.0` 与 `0.0` 是否视为等价。
+- NaN 和 Infinity 是否允许进入几何参数。
+- 无序 Map 如何稳定排序。
+- 单位换算后的规范化值。
+- 不同操作实现版本下的参数兼容性。
+
+哈希的一致性是缓存正确性的前提，不能靠“相同 JSON 看起来差不多”来保证。
+
+## 5. 选择什么数据库？
+
+这里需要作出明确决策。
+
+我建议本地编辑器与云端服务使用相同的逻辑存储协议，但不强制使用相同的物理数据库。
+
+本地模式
+
+SQLite WAL + 本地 CAS
+
+适合桌面软件、离线工程、单用户编辑、开发测试。
+
+事务、分支指针、ChangeSet 和事件记录存 SQLite，大型内容块存本地文件。
+
+云端模式
+
+PostgreSQL + S3 兼容 CAS
+
+适合多个客户端、多个 Agent Worker 和持久化云工程。
+
+工程元数据和提交事务由 PostgreSQL 管理，几何与不可变快照存对象存储。
+
+为什么第一版不直接将 RocksDB 设为云端权威数据库？
+
+RocksDB 非常适合高频 Key-Value、LSM 存储和本地索引，也支持跨 Column Family 的原子 WriteBatch。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+但我们的云端首先需要处理工程权限、用户、分支 CAS 提交、事务隔离、任务元数据和多实例访问。
+
+PostgreSQL 能让这些需求的第一版实现更加直接。
+
+RocksDB 可以在后续成为高吞吐 Worker 的本地缓存、图索引持久层或专门的存储引擎，但目前没有必要同时维护两个复杂的权威存储系统。
+
+## 5.1 云端数据库核心表
+
+建议最初拥有这些表：
+
+```
+CREATE TABLE revisions (
+    revision_id UUID PRIMARY KEY,
+    project_id UUID NOT NULL,
+    manifest_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    author_id TEXT NOT NULL,
+    state TEXT NOT NULL
+);
+
+CREATE TABLE revision_parents (
+    revision_id UUID NOT NULL,
+    parent_id UUID NOT NULL,
+    PRIMARY KEY (revision_id, parent_id)
+);
+
+CREATE TABLE branches (
+    project_id UUID NOT NULL,
+    branch_name TEXT NOT NULL,
+    head_revision UUID NOT NULL,
+    version BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (project_id, branch_name)
+);
+
+CREATE TABLE changesets (
+    transaction_id UUID PRIMARY KEY,
+    revision_id UUID NOT NULL,
+    command_blob_hash TEXT NOT NULL,
+    read_set_hash TEXT,
+    write_set_hash TEXT
+);
+
+CREATE TABLE commit_outbox (
+    event_id UUID PRIMARY KEY,
+    project_id UUID NOT NULL,
+    revision_id UUID NOT NULL,
+    event_type TEXT NOT NULL,
+    published_at TIMESTAMPTZ
+);
+```
+
+完整实现还需要外键、索引、权限、租户隔离和状态约束。
+
+`revisions` 保存不可变版本；`branches` 保存可变指针。
+
+两个 Agent 尝试同时提交到同一个分支时，可以在数据库事务内通过版本条件更新：
+
+```
+UPDATE branches
+SET head_revision = $new_head,
+    version = version + 1
+WHERE project_id = $project
+  AND branch_name = $branch
+  AND head_revision = $expected_head;
+```
+
+受影响行数为 0 就代表分支指针已经变化。
+
+但成功更新分支头还不代表整个事务通过验证。必须先完成对候选内容、依赖、访问权限和几何结果的检查。
+
+## 5.2 版本状态与计算状态必须分开
+
+这里有一个在 RFC-001 基础上需要进一步精化的决定。
+
+复杂的几何求值可能持续几分钟，因此不能要求每个可编辑草稿修改都等待完整计算完成之后才能持久化。
+
+我建议区分：
+
+Specification Revision：场景节点、Feature 定义和约束已经持久化，但部分几何产物可能尚未求值。
+
+Materialization Record：记录某个 Revision 的具体 Feature 输出已经计算到什么状态，引用了哪些几何 Artifact。
+
+Published Revision：通过指定验证策略、允许作为已批准工程版本使用的 Revision。
+
+这样 Agent 可以先在私有分支持久化参数和 Feature 定义，再异步执行昂贵的求值任务。
+
+主分支如果受到严格发布策略保护，只有在必要的几何检查全部通过后才允许升级分支头。
+
+另外，Materialization 必须绑定 Revision 和输入指纹。旧 Revision 的慢速求值任务即使最后完成，也不能错误地覆盖新 Revision 的输出。
+
+### 5.3 故障一致性
+
+数据库与对象存储无法天然组成单个 ACID 事务。
+
+我建议采用“不可变内容先持久化，版本指针后提交”的顺序。
+
+```
+Serialize Candidate Graph
+          ↓
+Upload Immutable Chunks
+          ↓
+Verify Hashes and Durability
+          ↓
+Write Revision + ChangeSet
+          ↓
+Atomic Branch Head Update
+          ↓
+Commit Outbox Event
+          ↓
+Broadcast Revision Change
+```
+
+如果上传完 Blob 后数据库提交失败，只会产生暂时无人引用的 Blob，可由垃圾回收回收。
+
+如果 Worker 在分支指针提交之后崩溃，新的进程依然能够通过已提交的 Revision Manifest 恢复。
+
+Amazon S3 官方提供 PUT 后的强读一致性及单键条件写入能力，可帮助实现内容验证和防止同名对象覆盖。但对象存储的一致性不能替代数据库的多对象事务。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.aws.amazon.com&sz=32)
+
+Amazon Simple Storage Service
+
++1
+
+对于所有 S3 兼容实现，相关一致性和条件写入能力需要单独进行兼容测试。
+
+# 第三部分：Geometry Artifact 在 CPU、GPU 和云端之间怎样共享？
+
+## 6. 先明确什么是 Geometry Artifact
+
+我建议把 Geometry Artifact 定义为：
+
+> 一份由特定建模计算产生、内容不可变、可以独立验证和引用的几何数据集合。
+> 
+
+例如：
+
+```
+Feature: GenerateCastleRoof
+     │
+     ▼
+Geometry Artifact
+     ├── Manifest
+     ├── Topology
+     ├── Vertex Attributes
+     ├── Semantic Subshape Map
+     ├── Bounding Box
+     └── Optional LODs
+```
+
+Artifact 不应直接等同于一个 `.glb` 文件。
+
+因为 GLB 主要面向三维数据的传输和运行时使用。Khronos 的 glTF 规范明确表示，glTF 不以保留建模编辑历史为目标。
+
+[](https://www.google.com/s2/favicons?domain=https://registry.khronos.org&sz=32)
+
+Khronos Registry
+
+我们需要同时满足建模、渲染、重新计算、云端分发和历史追踪，因此需要内部 Artifact 格式，再通过导出适配器生成 GLB、USD、STEP 等交付格式。
+
+## 6.1 Mesh 的内部结构
+
+对于 Mesh，我建议区分两种表示。
+
+Editable Mesh 用于几何修改。
+
+它需要描述顶点、边、面以及必要的拓扑邻接关系。
+
+Render Mesh 用于 GPU 渲染。
+
+它需要紧凑的顶点属性和三角形索引缓冲区。一个逻辑顶点因为 UV 接缝、硬边法线或材质分割，在 Render Mesh 中可能对应多个顶点。
+
+两个表示不能强行使用完全相同的顶点索引语义。
+
+V1 的 Editable Mesh 可以采用面环和顶点属性表，辅以按需构建的半边结构；进入 GPU 前再进行三角化与顶点属性展开。
+
+概念结构：
+
+```
+struct MeshArtifact {
+    topology: BlobRef,
+
+    positions: BlobRef,
+    normals: Option<BlobRef>,
+    uv_sets: Vec<BlobRef>,
+
+    material_groups: Vec<MaterialGroup>,
+    subshape_map: Option<BlobRef>,
+
+    bounds: BoundingBox,
+}
+```
+
+拓扑来源映射不一定每次都有完整数据。如果后端无法追踪某些面的继承关系，Artifact 应明确标记该能力缺失，不能生成虚假的稳定引用。
+
+## 6.2 二进制 Artifact 格式
+
+我建议定义一个内部格式，例如暂称 `GAF`（Geometry Artifact Format）。
+
+它首先是内部存储规范，不急于作为面向全行业的开放交换标准。
+
+Manifest 示例：
+
+```
+{
+  "format": "gaf",
+  "version": 1,
+  "geometry_type": "triangle_mesh",
+  "topology": {
+    "hash": "sha256:topology",
+    "vertex_count": 100000,
+    "triangle_count": 180000
+  },
+  "attributes": [
+    {
+      "semantic": "POSITION",
+      "component_type": "float32",
+      "component_count": 3,
+      "hash": "sha256:positions"
+    },
+    {
+      "semantic": "NORMAL",
+      "component_type": "float32",
+      "component_count": 3,
+      "hash": "sha256:normals"
+    }
+  ],
+  "bounds": {
+    "min": [-5, -5, 0],
+    "max": [5, 5, 12]
+  }
+}
+```
+
+哈希字符串为示例占位符。
+
+实际 GAF 需要定义：
+
+- 文件头、Magic、Schema 版本。
+- 字节序、类型、对齐和 Buffer 长度。
+- Chunk Table 和内容哈希。
+- 压缩方式及未压缩长度。
+- 完整性校验。
+- 几何表示类型。
+- 索引与属性流的对应关系。
+- 可选的语义拓扑映射。
+- 对未知字段与未来版本的兼容规则。
+
+对 B-Rep，第一版可以保存 OCCT 原生序列化内容及其运行环境元数据。需要把 OCCT 的版本和几何容差配置纳入 Action Cache Key。
+
+我不建议在第一版尝试设计一个能够完整替代 STEP/OCCT 数据模型的全新精密几何文件格式。
+
+## 7. CPU、GPU、云端其实是三种不同的存储域
+
+这里最重要的架构决定是：
+
+共享的是 Artifact 的逻辑身份与内容，不一定是同一块物理内存。
+
+Immutable Artifact ID
+
+sha256:geometry-content
+
+Disk / CAS
+
+持久化内容
+
+CPU RAM
+
+解码与建模
+
+GPU VRAM
+
+顶点和索引缓存
+
+每个存储域维护 Artifact ID → 本地资源的映射。资源可以被逐出，逻辑 Artifact ID 保持不变。
+
+### 7.1 第一层：本地磁盘与对象存储
+
+例如：
+
+```
+cas/
+  sha256/
+    ab/
+      abcd...geometry_chunk
+    72/
+      72ef...mesh_manifest
+```
+
+`ab` 和 `72` 是哈希前缀。
+
+大文件可以拆成多个内容块，小的 Blob 则不必强制拆分。对于需要局部更新或范围下载的资源，尽量让 Chunk 划分与几何数据的自然边界对应。
+
+云端 Worker 应先检查本地磁盘缓存，没有对应 Blob 时再到对象存储读取。
+
+### 7.2 第二层：CPU Geometry Cache
+
+CPU 内存需要同时支持：
+
+- 不可变的原始二进制数据。
+- 解码后的 Mesh 或 B-Rep 对象。
+- 查询加速结构，例如 BVH、半边邻接关系。
+- 建模计算的临时缓冲区。
+
+建议使用：
+
+```
+struct CpuArtifactEntry {
+    id: ArtifactId,
+    decoded: Arc<GeometryData>,
+    size_bytes: usize,
+    last_access: AccessTick,
+}
+```
+
+这里的 `Arc` 允许同一进程的多个只读任务共享已解码对象。
+
+但一旦执行会改变顶点、拓扑或者曲面的建模操作，就应该生成新版本或新的可变工作副本。
+
+不能让多个 Worker 修改同一个被缓存的 Artifact，否则内容哈希和缓存身份将失去意义。
+
+对于大型不可变 Blob，可以尝试使用内存映射，避免普通文件读取过程中的部分拷贝。
+
+Rust `memmap2` 支持只读映射，但其文档也提醒：如果底层文件在映射期间被其他进程修改，可能存在内存安全问题。因此 CAS 文件必须按不可变规则管理，不能原地覆盖。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.rs&sz=32)
+
+Rust
+
+### 7.3 第三层：GPU Geometry Cache
+
+GPU 侧不需要维护完整的 Feature DAG 或用户建模历史。
+
+它只需要知道：
+
+```
+Artifact ID
+   ↓
+Render Representation
+   ↓
+GPU Buffer Handles
+```
+
+建议设计：
+
+```
+struct GpuArtifactEntry {
+    artifact: ArtifactId,
+    device: DeviceId,
+
+    vertex_buffer: GpuBufferHandle,
+    index_buffer: GpuBufferHandle,
+
+    vertex_count: u32,
+    index_count: u32,
+
+    resident_bytes: usize,
+    last_used_frame: u64,
+}
+```
+
+需要注意：GPU Buffer Handle 只在特定设备和图形上下文中有效，不能跨进程、跨机器作为永久的 Artifact ID。
+
+在同一图形设备内，可以通过 staging buffer 和 GPU copy 命令上传数据。wgpu 提供 `StagingBelt`，用于复用临时上传缓冲区，尤其适合许多小块数据的上传。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.rs&sz=32)
+
+Rust
+
+### 7.4 第四层：跨 GPU、跨进程、跨服务器
+
+这里要分清几种情况。
+
+| 场景 | 建议的数据共享方式 |
+| --- | --- |
+| 同一进程、多线程 | 共享不可变 CPU 对象和 GPU 资源管理器 |
+| 同一机器、不同 CPU 进程 | 只读 mmap 或受保护的共享内存 |
+| 同一机器、CUDA 进程间 | 满足驱动、设备与安全约束时使用 CUDA IPC |
+| 同一机器、不同 GPU API | 使用支持的互操作机制，必要时经 CPU 中转 |
+| 不同云服务器 | Artifact ID + CAS 下载/上传 |
+| 浏览器与云端 Worker | 通过网络流式获取 Render Artifact |
+
+NVIDIA 官方文档指出，CUDA 设备指针不能直接在另一个进程中使用，跨进程访问需要 IPC 或相关虚拟内存管理机制。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.nvidia.com&sz=32)
+
+CUDA Programming Guide
+
+所以“云端 GPU 共享一份显存里的 Mesh”不能作为通用假设。
+
+我们的统一抽象应是 Content ID，物理传输由设备与网络适配层处理。
+
+## 8. Geometry Residency Manager
+
+为了避免每个模块自行维护缓存，我建议做一个统一的 Residency Manager。
+
+它管理一个 Artifact 在各个存储域的驻留状态。
+
+```
+enum Residency {
+    RemoteOnly,
+    LocalDisk,
+    CpuCompressed,
+    CpuDecoded,
+    GpuResident(DeviceId),
+}
+```
+
+实际实现不应该把这些状态做成互斥枚举，因为一个 Artifact 可以同时存在于磁盘、RAM 和多个 GPU 上。
+
+更合适的数据结构是：
+
+```
+struct ResidencyRecord {
+    artifact_id: ArtifactId,
+
+    local_blob: Option<LocalBlobHandle>,
+    cpu_object: Option<CpuGeometryHandle>,
+
+    gpu_resources:
+        HashMap<DeviceId, GpuArtifactEntry>,
+}
+```
+
+建议第一版提供五个基础 API：
+
+```
+async fn ensure_local(id: ArtifactId) -> Result<LocalBlob>;
+
+async fn ensure_cpu(id: ArtifactId) -> Result<CpuGeometry>;
+
+async fn ensure_gpu(
+    id: ArtifactId,
+    device: DeviceId
+) -> Result<GpuGeometry>;
+
+fn pin(id: ArtifactId, reason: PinReason) -> PinGuard;
+
+fn evict(target_bytes: usize) -> EvictionReport;
+```
+
+`pin()` 需要有可释放的生命周期，防止 GPU 渲染尚未结束就释放对应 Buffer。
+
+GPU 释放还需要尊重 GPU 命令提交和完成的同步边界，不能仅因为 CPU 引用计数归零就立即销毁仍在使用的资源。
+
+### 8.1 推荐的缓存逐出策略
+
+可以从 LRU + 内存预算 + Pin 机制开始。
+
+例如：
+
+- 当前视口可见对象优先驻留显存。
+- 正在编辑的对象优先保留 CPU 可编辑表示。
+- 正在被 Worker 使用的几何禁止逐出。
+- 历史版本的渲染资源允许优先释放。
+- 未使用的派生 BVH 可以丢弃并在下次查询时重建。
+
+不同层级的缓存预算要独立管理，特别是云端生成式模型与视口渲染不应互相无限抢占 GPU 资源。
+
+## 9. 大场景不能依赖一次加载全部模型
+
+在大型城堡、城市或者开放世界场景中，我们需要支持：
+
+Scene Metadata First, Geometry On Demand.
+
+用户打开工程时，先加载场景结构、包围盒、对象名称、几何引用和代理表示。
+
+然后按照相机、选区和当前任务，逐步加载几何。
+
+例如：
+
+```
+Open Project
+    ↓
+Load Revision Manifest
+    ↓
+Load Scene Structure
+    ↓
+Build Object Hierarchy
+    ↓
+Show Bounding Boxes / Proxies
+    ↓
+Load Visible Geometry Chunks
+    ↓
+Upload to GPU
+    ↓
+Load Higher LOD Where Needed
+```
+
+这要求 Scene Node 可以处于“几何尚未加载”的状态，而不能因为没有 CPU 顶点数据就被当作不存在。
+
+对于 GPU 渲染，可以同时采用 LOD、实例化、视锥剔除，以及按区域加载策略。
+
+但对于精确编辑，必须能拿到完整的原始几何或可编辑计算定义。低精度 LOD 只是一种派生展示结果。
+
+# 第四部分：Feature 变化后，怎样实现毫秒级增量失效？
+
+## 10. 先明确性能边界
+
+这里可以把整体延迟分解为：
+
+\[
+T_{\text{total}} =
+T_{\text{commit}}+
+T_{\text{invalidate}}+
+T_{\text{schedule}}+
+T_{\text{evaluate}}+
+T_{\text{materialize}}+
+T_{\text{upload}}
+\]
+
+其中：
+
+- \(T_{\text{commit}}\)：接受并持久化建模修改。
+- \(T_{\text{invalidate}}\)：识别受影响的依赖。
+- \(T_{\text{schedule}}\)：生成并派发可执行任务。
+- \(T_{\text{evaluate}}\)：执行实际几何计算。
+- \(T_{\text{materialize}}\)：保存并发布 Geometry Artifact。
+- \(T_{\text{upload}}\)：更新视口 CPU/GPU 资源。
+
+在首发版本中，我们真正应当追求毫秒级的是：
+
+\[
+T_{\text{invalidate}}+T_{\text{schedule}}
+\]
+
+而且这是针对内存中已经建立依赖索引、修改影响范围有限的情况。
+
+如果一个公共参数改变，确实会影响 20 万个 Feature，那么仅仅遍历它们也需要相应的时间。系统不应该为了宣传毫秒级而隐藏这部分必要工作。
+
+## 11. 核心算法：Reverse Dependency + Dirty Propagation
+
+假设当前依赖关系是：
+
+```
+CastleScale
+ ├── Foundation
+ ├── MainWalls
+ │    ├── Windows
+ │    └── DoorFrames
+ └── RoofProfile
+      ├── RoofMesh
+      │    └── RoofUV
+      └── TileLayout
+           └── TileInstances
+```
+
+用户只修改 `RoofProfile`。
+
+那么可以立即从反向依赖索引中找到可能受影响的 Feature：
+
+```
+RoofProfile
+ ├── RoofMesh
+ │    └── RoofUV
+ └── TileLayout
+      └── TileInstances
+```
+
+Foundation、MainWalls、Windows、DoorFrames 都没有必要进入这一轮重新计算。
+
+### 11.1 第一阶段：收集变更键
+
+Modeling IR 进入 Transaction Engine 后，生成：
+
+```
+struct ChangeSet {
+    changed_keys: Vec<DependencyKey>,
+    created_features: Vec<FeatureId>,
+    deleted_features: Vec<FeatureId>,
+    changed_edges: Vec<EdgeChange>,
+}
+```
+
+例如：
+
+```
+ChangedKey:
+  FeatureParameter(
+    RoofProfile,
+    EaveExtension
+  )
+```
+
+### 11.2 第二阶段：失效传播
+
+第一版可以采用简单的 BFS/DFS。
+
+```
+fn collect_affected(
+    roots: &[DependencyKey],
+    reverse_index: &ReverseDependencyIndex,
+    visited: &mut EpochVisited,
+) -> Vec<FeatureId> {
+    let mut queue = VecDeque::new();
+    let mut affected = Vec::new();
+
+    for key in roots {
+        queue.push_back(*key);
+    }
+
+    while let Some(key) = queue.pop_front() {
+        for consumer in reverse_index.consumers(key) {
+            if visited.mark_new(consumer.feature_id) {
+                affected.push(consumer.feature_id);
+
+                for output in consumer.output_keys() {
+                    queue.push_back(output);
+                }
+            }
+        }
+    }
+
+    affected
+}
+```
+
+这是表达算法的 Rust 风格伪代码，不是可直接编译的实现。
+
+实际系统还需要：
+
+- 区分参数变化与拓扑连接变化。
+- 支持具体输出端口的失效传播。
+- 正确处理删除 Feature 后的悬空依赖。
+- 维护不同 Revision 的依赖索引。
+- 防止长链遍历和多任务之间的状态竞争。
+
+### 11.3 时间复杂度
+
+如果需要访问的受影响节点集合大小为 \(V_a\)，涉及的反向依赖边为 \(E_a\)，那么一次完整传播的复杂度约为：
+
+\[
+O(|V_a|+|E_a|)
+\]
+
+前提是可以通过反向索引直接访问消费者，不需要扫描整个 Feature Graph。
+
+这也是我们必须维护 `dependents` 索引的原因。
+
+### 11.4 避免每次清空 visited 数组
+
+如果 Feature 数量很大，每次遍历前把一个包含全部节点的 `visited` 数组清零，也会产生不必要的全图开销。
+
+可以使用 Epoch 标记：
+
+```
+struct EpochVisited {
+    marks: Vec<u64>,
+    current_epoch: u64,
+}
+```
+
+每次新传播只增加 `current_epoch`。访问节点时检查：
+
+```
+marks[index] == current_epoch
+```
+
+初次标记则写入当前 Epoch。
+
+在计数器溢出或索引重建时统一重置。
+
+这样无需在每次失效传播前扫描所有 Feature。
+
+## 12. 进一步减少计算：Red-Green Revalidation
+
+仅有 Dirty Propagation 还不够。
+
+一个 Feature 的输入发生变化，并不意味着它的输出一定发生变化。
+
+举个例子：
+
+某个建筑参数从 `9.999` 改到 `10.001`，而瓦片数量的计算结果经过取整之后仍然是 `20`。
+
+那么依赖瓦片数量的后续 Feature 可能无需重新运行。
+
+我建议实现两阶段机制：
+
+第一阶段：Potentially Dirty
+
+保守地找到可能受影响的子图。
+
+第二阶段：Revalidate
+
+按依赖顺序重新检查缓存键和实际输出。若某个 Feature 的可观察输出没有变化，可跳过依赖它的下游计算，前提是下游没有其他变化输入。
+
+这类 red-green 思路在 Salsa 的增量计算算法中有详细解释。
+
+[](https://www.google.com/s2/favicons?domain=https://salsa-rs.github.io&sz=32)
+
+Salsa
+
+### 12.1 使用 Action Key 判定是否需要执行
+
+对每个 Feature，构造：
+
+\[
+K_f=H(
+OpType,
+OpVersion,
+Params,
+InputDigests,
+Environment
+)
+\]
+
+在调度执行之前查询：
+
+```
+Action Cache[K_f]
+```
+
+如果命中并且产物仍然存在、完整、可用，就可以直接复用。
+
+否则执行 Geometry Kernel。
+
+执行结束后再对新旧输出内容进行比较。
+
+```
+Feature Input Changed
+          ↓
+Compute New Action Key
+          ↓
+      Cache Hit?
+       /       \
+     Yes       No
+      │         │
+Reuse Result  Execute Kernel
+       \       /
+        New Output
+             ↓
+   Compare With Old Output
+       /             \
+    Equal           Different
+      │                │
+ Keep Consumers    Revalidate
+      Clean         Consumers
+```
+
+需要注意：相同 Action Key 命中缓存与输出内容不变是两个不同判断。不同输入可以得到相同输出，反过来，缓存键相同但执行不确定或缓存实现有问题时，也不能无条件相信旧结果。
+
+对于声明为非确定性的 Feature，可以禁用跨执行缓存，或者将固定随机种子、模型版本和推理配置纳入可重现性契约。
+
+### 12.2 对多输出 Feature 做更细的失效传播
+
+例如：
+
+```
+RoofGenerator
+ ├── output: mesh
+ ├── output: bounds
+ ├── output: tile_count
+ └── output: material_slots
+```
+
+修改屋顶局部顶点之后，可能改变 `mesh` 和 `bounds`，却未改变 `tile_count`。
+
+因此最终的依赖和缓存粒度应该是：
+
+```
+FeatureId + OutputPortId
+```
+
+而不只是一个 Feature 级布尔值 `dirty`。
+
+第一版可以先按整个 Feature 保守失效；第二阶段再引入输出端口级重验证。
+
+## 13. 增量执行调度器
+
+识别出受影响的 Feature 之后，需要知道哪些任务已经满足输入条件。
+
+我建议构建一个针对每轮 Evaluation 的执行计划。
+
+```
+struct EvaluationPlan {
+    revision: RevisionId,
+    run_id: EvaluationRunId,
+
+    affected_features: Vec<FeatureId>,
+    pending_inputs: Vec<u32>,
+
+    ready_queue: VecDeque<FeatureId>,
+}
+```
+
+调度时采用依赖计数。
+
+```
+Build A ──┐
+          ├── Assemble C ── Render D
+Build B ──┘
+```
+
+A、B 可以同时执行，C 必须等待它们完成，D 必须等待 C 完成。
+
+### 13.1 调度器执行过程
+
+```
+1. 创建 EvaluationPlan
+2. 初始化受影响 Feature 的未满足输入计数
+3. 将输入已满足的任务放入 Ready Queue
+4. 查询 Action Cache
+5. 命中缓存则直接完成该任务
+6. 未命中则提交到对应 Geometry Worker
+7. Worker 返回结果
+8. 校验并保存 Artifact
+9. 更新消费者的输入满足状态
+10. 将新 Ready Feature 入队
+11. 直到所有任务完成、失败或取消
+```
+
+实际实现要区分“某个上游已经被判定保持原输出”和“某个上游尚未完成”，避免重复调度。
+
+### 13.2 Worker Pool 分层
+
+我建议至少区分以下资源池。
+
+| Pool | 任务 |
+| --- | --- |
+| Interactive CPU | 轻量几何操作、Transform、简单查询 |
+| Heavy Geometry CPU | B-Rep、复杂布尔、网格重建 |
+| GPU Geometry | GPU 计算、部分几何处理 |
+| Generative GPU | 生成式 3D、纹理、AI 推理 |
+| Render | 预览渲染、离线渲染 |
+
+一个重要约束：交互编辑和长程生成不能无限竞争同一批资源。
+
+例如，用户拖动一个参数滑块，正在运行的长程 Agent 同时发起上百项复杂计算。调度器需要为交互任务保留一部分计算能力，避免用户感觉整个软件卡住了。
+
+### 13.3 任务优先级
+
+可以从以下四个因素计算调度优先级：
+
+\[
+P = w_1 U + w_2 V + w_3 C + w_4 A
+\]
+
+其中：
+
+- \(U\)：用户交互紧急程度。
+- \(V\)：当前视口可见性。
+- \(C\)：任务位于关键依赖路径的程度。
+- \(A\)：等待时间或公平性补偿。
+
+这里的公式只是调度策略的设计形式，不代表已经经过性能评测的最优算法。
+
+我建议使用：
+
+- 交互优先级队列。
+- 每工程并发上限。
+- 每用户/Agent 的任务配额。
+- 重任务资源预留。
+- Aging 机制防止低优先级任务永久饥饿。
+- 相同 Action Key 的并发任务合并执行。
+
+最后一条尤其重要。
+
+如果五个 Agent 同时需要生成相同参数的楼梯模型，不必运行五次相同的 Geometry Kernel。
+
+可以建立：
+
+```
+Inflight[ACTION_KEY]
+```
+
+第一个任务负责执行，其他任务订阅结果，成功后各自引用同一个 Artifact。
+
+但引用权限、租户隔离和缓存命中信息必须满足安全策略。
+
+## 14. 防止旧任务覆盖新修改
+
+长程异步架构中，这种竞争会非常频繁。
+
+例如：
+
+```
+T0: Roof Width = 10
+    Start Evaluation A
+
+T1: Roof Width = 12
+    Start Evaluation B
+
+T2: Evaluation B finished
+
+T3: Evaluation A finished
+```
+
+如果简单地按 Worker 完成顺序更新场景，屋顶可能被错误地恢复成宽度 10。
+
+所以每一个 Evaluation 都要携带：
+
+```
+struct EvaluationIdentity {
+    project_id: ProjectId,
+    revision_id: RevisionId,
+    feature_id: FeatureId,
+    output_port: PortId,
+    action_key: ActionKey,
+}
+```
+
+完成结果时：
+
+1. 校验产物。
+2. 将其关联到正确的 Revision 和 Feature Output。
+3. 更新该 Revision 对应的 Materialization Record。
+4. 如果当前视口已经切换到新 Revision，旧结果不能直接替换新场景的 Buffer。
+5. 如果新旧 Revision 使用相同 Action Key，可以安全复用对应产物。
+
+这里不需要盲目丢弃所有旧任务结果。
+
+只要结果合法，它仍然可能对旧版本预览、分支比较和其他共享输入的计算有价值。
+
+# 第五部分：把三个子系统连接起来
+
+## 15. 一次真实建模修改的完整执行过程
+
+现在用“修改城楼屋檐”为例，把 Scene Graph、Feature DAG、Revision Store、Geometry Artifact Store、GPU Cache 和 Agent Runtime 串起来。
+
+假设：
+
+- 当前工程版本为 `R100`。
+- 屋顶由 `F_roof` 生成。
+- 瓦片布局依赖屋顶输出。
+- 用户要求把屋檐延长 0.35 米。
+- Agent A 正在创建庭院。
+- Agent B 正在调整屋顶材质。
+
+### 15.1 执行时序
+
+01
+
+接受命令
+
+Human / Agent → Modeling IR
+
+将自然语言或 GUI 操作转换为类型化事务
+
+02
+
+创建候选快照
+
+Transaction Engine
+
+基于 R100 建立 Copy-on-Write 修改层
+
+03
+
+修改 Feature
+
+Feature Store
+
+更新 F_roof 的 eave_extension 参数
+
+04
+
+识别受影响节点
+
+Dependency Index
+
+找到 RoofMesh、TileLayout 及实际相关的下游
+
+05
+
+生成计算计划
+
+Incremental Evaluator
+
+检查缓存，并发调度可执行 Feature
+
+06
+
+执行与验证
+
+Geometry Workers
+
+生成新 Mesh，检查拓扑、约束和引用
+
+07
+
+保存几何
+
+Artifact Store
+
+写入新 Chunk、Manifest 和 Action Result
+
+08
+
+提交新版本
+
+Revision Store
+
+执行冲突检查，原子提交 R101
+
+09
+
+更新视口
+
+Scene Runtime
+
+根据 Diff 只替换发生变化的 GPU 资源
+
+这是需要完成完整几何验证的严格提交路径。
+
+如果用户仅在拖动滑块，客户端可以采用 Transient Preview；如果是长程 Agent 生成复杂城楼，可以先在候选分支持久化 Specification Revision，再异步计算和审查，最后发布到主分支。
+
+### 15.2 Agent A 和 Agent B 如何并发？
+
+两个 Agent 各自持有基于某个 Revision 的工程快照。
+
+Agent A 创建庭院、Agent B 修改屋顶材质，只要它们的读写依赖、约束和最终合并验证允许，就可以合并。
+
+整个过程中，没有必要对整个场景设置全局写锁。
+
+建议每个活跃 Revision 使用独立的只读快照：
+
+```
+struct SceneSnapshot {
+    revision: RevisionId,
+
+    scene: Arc<SceneStore>,
+    features: Arc<FeatureStore>,
+
+    indexes: Arc<DependencyIndexes>,
+}
+```
+
+这里的 `Arc` 本身不会让修改变得低成本。应在内部使用分片 Copy-on-Write 或 Overlay，避免修改一个节点时深拷贝整个 SceneStore。
+
+例如：
+
+```
+Snapshot R100
+   ├── Immutable Base Shards
+   └── Overlay A: Agent A
+
+Snapshot R100
+   ├── Immutable Base Shards
+   └── Overlay B: Agent B
+```
+
+当 Overlay 积累到一定规模时，后台进行压实，产生新的快照 Chunk。
+
+原快照在仍有读者使用期间继续有效。新的 Scene Graph、Feature DAG 和反向依赖索引作为同一个快照整体发布，避免读者看见新节点表搭配旧依赖表的混合状态。
+
+## 16. 存储与缓存的统一接口
+
+建议底层首先实现以下几个接口，并且让云端与本地复用同样的逻辑契约。
+
+```
+trait BlobStore {
+    async fn put(
+        &self,
+        bytes: &[u8],
+    ) -> Result<BlobId>;
+
+    async fn get(
+        &self,
+        id: BlobId,
+    ) -> Result<Bytes>;
+
+    async fn exists(
+        &self,
+        id: BlobId,
+    ) -> Result<bool>;
+}
+```
+
+```
+trait ProjectStore {
+    async fn load_revision(
+        &self,
+        id: RevisionId,
+    ) -> Result<ProjectSnapshot>;
+
+    async fn commit(
+        &self,
+        tx: PreparedTransaction,
+    ) -> Result<RevisionId>;
+}
+```
+
+```
+trait IncrementalEngine {
+    fn plan(
+        &self,
+        snapshot: &ProjectSnapshot,
+        changes: &ChangeSet,
+    ) -> Result<EvaluationPlan>;
+}
+```
+
+```
+trait GeometryExecutor {
+    async fn execute(
+        &self,
+        action: GeometryAction,
+    ) -> Result<ActionResult>;
+}
+```
+
+这都是接口级伪代码。正式 Rust 实现需要确定异步 Trait、关联类型、错误类型和对象安全约束。
+
+`PreparedTransaction` 必须包含依赖验证信息、预期 Branch Head、候选 Manifest 和已确认可访问的 Artifact 引用。
+
+其中最重要的边界是：
+
+GeometryExecutor 不能直接修改权威 Scene Store。
+
+它只负责执行计算并返回结果。Revision Store 才拥有将结果合并进入权威工程的权限。
+
+## 17. 崩溃恢复、垃圾回收与引用生命周期
+
+这部分必须与数据模型一起设计，否则项目运行一段时间后会积累大量不可回收的几何产物。
+
+### 17.1 崩溃恢复
+
+需要明确处理几种情况。
+
+| 故障发生位置 | 恢复行为 |
+| --- | --- |
+| 命令尚未提交 | 丢弃或重新应用候选修改 |
+| Blob 上传到一半 | 清理不完整上传，或按协议续传 |
+| Blob 已保存，Revision 未提交 | 未引用 Blob 等待垃圾回收 |
+| Revision 已提交，广播失败 | 通过 Outbox 重发事件 |
+| Worker 在几何执行中崩溃 | 从已持久化输入和任务检查点重试 |
+| GPU 设备丢失 | 销毁失效 Handle，从 Artifact 重建显存资源 |
+| 本地编辑器崩溃 | 加载最近有效 Revision 和可恢复的本地操作日志 |
+
+这里尤其要区分“内核可以重试”和“重复执行没有副作用”。
+
+GeometryAction 如果被声明为可缓存、可重试的纯计算，就不能偷偷修改外部数据库、删除文件或发布资产。需要外部副作用时，必须使用单独的受控操作。
+
+### 17.2 Geometry Artifact 的垃圾回收
+
+我建议初期采用保守的 Mark-and-Sweep。
+
+从以下根集合出发：
+
+- 所有受保护和仍保留的 Branch Head。
+- 按保留策略需要保存的历史 Revision。
+- 正在运行的 Agent Run。
+- 正在评估的候选分支与尚未过期的上传租约。
+- 用户显式固定的资产。
+- 必须保持可用的发布产物。
+
+遍历 Revision Manifest 和 Artifact Manifest，标记可达 Blob。
+
+没有被引用、也没有活跃租约，并且超过安全宽限期的 Blob 才允许回收。
+
+注意数据库引用与对象存储删除之间的并发。GC 必须保证扫描之后新出现的合法引用不会指向已经被删除的对象，可以采用代际清理、墓碑与宽限期、写入屏障等机制。
+
+### 17.3 缓存不能替代持久化存储
+
+Action Cache 可以被清理。
+
+CPU Cache 和 GPU Cache 也可以被清理。
+
+但已发布 Revision 引用的权威 Geometry Artifact 应当遵循正式的保留政策，不能因为某项资源近期无人访问就直接删除。
+
+# 第六部分：性能目标与实验设计
+
+## 18. 建立可测量的性能目标
+
+这里的数据是我建议的首版工程验收目标，并非已经完成的测试结果。
+
+先确定一个基本测试环境：
+
+- 单进程 Rust Scene Kernel。
+- 所有参与测试的图索引预加载至内存。
+- Release 编译。
+- 不包含网络往返、几何 Kernel 执行和 GPU 上传。
+- 使用稳定生成的随机 DAG、链式 DAG 和真实场景 DAG 三组数据。
+- 按 p50、p95、p99 统计。
+
+| 测试项 | 测试规模 | 初始目标 |
+| --- | --- | --- |
+| NodeId 定位 | 100 万 Scene Node | p95 小于 10 μs |
+| 局部失效传播 | 10 万 Feature、30 万边，影响不超过 100 个节点 | p95 小于 2 ms |
+| 较大失效传播 | 同等规模，影响不超过 1,000 个节点 | p95 小于 5 ms |
+| 增量调度计划 | 1,000 个受影响 Feature | p95 小于 10 ms |
+| 局部 Scene 修改 | 100 万节点，单节点 Transform 修改 | 不随全场景节点数线性增长 |
+| 不变 Artifact 查询 | 本地热缓存 | 不进行 Geometry Kernel 重算 |
+| 崩溃后重新打开工程 | 10 万节点规模 | 能恢复权威数据和索引 |
+
+对于 NodeId 定位，目标只包括索引查找与有效性检查，不包含磁盘缺页、JSON 解析或者网络请求。
+
+对于大范围失效传播，可以设定分段调度预算，而不是要求一次同步循环在固定几毫秒内遍历数十万个节点。
+
+## 18.1 核心 Benchmark 场景
+
+建议做五种图拓扑：
+
+长依赖链
+
+`F1 → F2 → ... → F10000`
+
+测试最深依赖、栈安全、增量扫描与串行关键路径。
+
+高扇出图
+
+一个 Feature 被几万个下游引用。
+
+测试公共参数变化后的传播性能与调度内存开销。
+
+菱形依赖图
+
+多条路径最终汇聚到同一个 Feature。
+
+测试重复访问消除、依赖计数和一次性执行。
+
+分块场景图
+
+大量独立建筑与重复实例。
+
+测试修改局部建筑时，其他场景区域能否保持缓存有效。
+
+连续交互修改
+
+高频滑块更新、旧任务延迟返回。
+
+测试 Coalescing、取消策略和 Revision 隔离。
+
+## 18.2 Benchmark 不能只测平均响应时间
+
+建议统一记录：
+
+```
+scene_lookup_ns
+snapshot_overlay_us
+dirty_propagation_us
+affected_feature_count
+dependency_edge_visits
+plan_build_us
+action_cache_hit_rate
+geometry_execution_ms
+artifact_upload_ms
+gpu_upload_ms
+stale_result_count
+revision_commit_ms
+```
+
+特别关注 `dependency_edge_visits / affected_feature_count`。
+
+如果一项小修改导致大量无关边被遍历，很可能说明依赖索引粒度过粗。
+
+还需要检查 Action Cache 命中率与真正节省的计算时间。一项只需几十微秒的计算，即使缓存命中率很高，也未必值得付出昂贵的分布式查询成本。
+
+## 19. 内核正确性的自动测试
+
+我建议把以下测试设为 CI 中的强制测试。
+
+| 测试类别 | 必须证明的性质 |
+| --- | --- |
+| Graph Invariants | Scene 层级无环，Feature DAG 无环 |
+| Identity | 持久化和重新加载后外部 ID 不变 |
+| Snapshot Isolation | 修改候选分支不影响其他 Revision |
+| Hash Stability | 相同规范化内容生成相同哈希 |
+| Dirty Propagation | 所有受影响的依赖都被正确识别 |
+| Red-Green | 输出不变时安全跳过无关重算 |
+| Cache Equivalence | 缓存命中与真实重新执行结果等价 |
+| Transaction Atomicity | 失败事务不产生部分工程提交 |
+| Concurrency | 冲突不会静默覆盖，独立提交可安全合并 |
+| Crash Recovery | 任意提交阶段故障后能恢复一致状态 |
+| GC Safety | 仍可达的 Artifact 不会被删除 |
+| Topology Reference | 子拓扑引用失效会被检测和报告 |
+
+对于依赖图，建议同时做 Property-Based Testing，随机生成合法 DAG，再随机增删节点与依赖边，与简单的全量重算结果进行对照。
+
+这样可以持续发现增量算法在边界条件下漏算的问题。
+
+# 第七部分：落到实际 Rust 项目
+
+## 20. 推荐模块拆分
+
+```
+crates/
+│
+├── kernel-types/
+│   ├── ids.rs
+│   ├── units.rs
+│   ├── math.rs
+│   └── errors.rs
+│
+├── scene-core/
+│   ├── node.rs
+│   ├── hierarchy.rs
+│   ├── instance.rs
+│   ├── components.rs
+│   └── snapshot.rs
+│
+├── feature-core/
+│   ├── feature.rs
+│   ├── ports.rs
+│   ├── dependency.rs
+│   ├── graph_index.rs
+│   └── validation.rs
+│
+├── modeling-ir/
+│   ├── commands.rs
+│   ├── transaction.rs
+│   └── schema.rs
+│
+├── incremental-engine/
+│   ├── invalidation.rs
+│   ├── action_key.rs
+│   ├── cache.rs
+│   ├── scheduler.rs
+│   └── evaluation.rs
+│
+├── artifact-core/
+│   ├── manifest.rs
+│   ├── mesh.rs
+│   ├── brep.rs
+│   ├── serialization.rs
+│   └── residency.rs
+│
+├── storage/
+│   ├── blob_store.rs
+│   ├── local_cas.rs
+│   ├── s3_cas.rs
+│   ├── revision_store.rs
+│   └── garbage_collection.rs
+│
+├── geometry-kernels/
+│   ├── manifold.rs
+│   ├── occt.rs
+│   └── kernel_registry.rs
+│
+└── kernel-tests/
+    ├── scene_tests.rs
+    ├── feature_tests.rs
+    ├── transaction_tests.rs
+    └── incremental_bench.rs
+```
+
+这里有意将 `incremental-engine` 与 `geometry-kernels` 分开。
+
+一方面可以单独测试依赖图算法，另一方面也允许未来替换几何后端，而无需重新实现缓存与调度体系。
+
+## 21. 实施顺序
+
+我建议按依赖关系分五个开发阶段。
+
+| 阶段 | 交付物 | 通过条件 |
+| --- | --- | --- |
+| 1. 类型和图结构 | SceneStore、FeatureStore、ID、Index | 能创建、查询、修改、验证场景与 DAG |
+| 2. 快照和存储 | BlobStore、Manifest、RevisionStore | 修改局部节点只重写必要 Chunk，可恢复历史版本 |
+| 3. 增量执行 | Dirty Propagation、Action Key、Cache | 与全量重算结果一致，并达到局部失效性能目标 |
+| 4. 几何接入 | Mesh Kernel、Artifact Manifest、验证器 | 可完整创建并修改多部件参数化模型 |
+| 5. 并发与 GPU | Worker Scheduler、Residency、版本隔离 | 并发任务正确合并，旧任务不会覆盖新结果 |
+
+在前三阶段，可以完全不接 LLM，甚至不需要完整的 3D 编辑器。
+
+先用单元测试、命令行和极小的调试视口验证内核正确性。这会显著减少 Agent 行为和几何计算同时出错时的调试难度。
+
+# RFC-002 最终架构决议
+
+| 编号 | 决议 |
+| --- | --- |
+| ADR-001 | Scene Graph 采用稳定外部 ID、紧凑内部 Handle 和分离式组件存储 |
+| ADR-002 | Feature DAG 维护正反依赖索引，逐步支持属性级、端口级依赖 |
+| ADR-003 | 活跃工程使用不可变 Snapshot + Copy-on-Write Overlay |
+| ADR-004 | 磁盘使用分块内容寻址快照，避免完整工程反复重写 |
+| ADR-005 | 本地权威元数据采用 SQLite，云端采用 PostgreSQL |
+| ADR-006 | Geometry Artifact 为不可变、独立持久化的数据对象 |
+| ADR-007 | CPU、GPU、云端通过 Artifact ID 统一寻址，通过 Residency Manager 管理物理副本 |
+| ADR-008 | 增量求值采用反向依赖传播、Action Cache 和 Red-Green Revalidation |
+| ADR-009 | Feature Scheduler 基于依赖计数执行，支持去重、取消、限流和资源优先级 |
+| ADR-010 | Revision 与 Materialization 分开管理，避免长程任务破坏版本一致性 |
+| ADR-011 | Geometry Kernel 不具有直接修改权威工程状态的权限 |
+| ADR-012 | 性能以局部失效延迟、重算减少量、缓存收益和端到端交互延迟共同评测 |
+
+## 最值得继续深入的技术问题
+
+完成 RFC-002 后，我们已经得到一套能够从最底层支撑 Agent 的数据系统。
+
+不过还有一个关键设计需要进一步明确：Feature DAG 的节点到底描述什么粒度的计算？
+
+例如，生成一座塔楼时，可以把整个塔楼看成一个 `GenerateTower` Feature，也可以将屋顶、墙体、窗户、楼梯拆分成上百个 Feature。粒度越细，局部增量重算的机会越多，但索引、序列化、调度和跨 Worker 通信成本也会增加。
+
+这会直接影响 Modeling IR、Agent 的工具颗粒度，以及自动建模结果的可编辑性。
+
+我建议把它作为 RFC-003：Feature Execution Model 的核心，研究如何构造一个既方便 Agent 规划、又支持增量计算的参数化建模执行系统。重点应包括 Feature 类型系统、参数约束、动态依赖、拓扑身份追踪、计算粒度以及跨 Kernel 的调用契约。
+
+如果 RFC-002 是软件的持久化世界状态，那么 RFC-003 将定义这个世界中所有几何操作如何实际发生。
+
+# RFC-003：Feature Execution Model
+
+## 面向 Agent、参数化建模与增量计算的统一执行模型
+
+Agent-Native 3D Modeling System · Architecture RFC v0.1 · 2026-10-26
+
+状态：提议采纳为核心架构规范
+
+RFC-001 确立 Scene Graph、Feature DAG 和 Modeling IR 的职责；RFC-002 确立内存数据模型、持久化存储和增量求值基础。
+
+RFC-003 要解决一个更根本的问题：
+
+怎样把三维建模变成一套可以被 Agent 理解、规划、执行、验证、局部重算和安全组合的计算系统？
+
+我建议将 Feature 定义为一种有明确类型与计算契约的、可持久化的几何计算单元。
+
+它接收参数与输入，执行一个受约束的建模运算，输出几何、数值、实例集合或结构化结果，并在条件允许时提供拓扑演化关系。
+
+这里最重要的架构决定是：
+
+> Feature 是纯计算接口上的有状态定义；Evaluation 是一次具体执行；Artifact 是不可变结果；Revision 是对 Feature 定义的版本化修改。
+> 
+
+一个 Feature 可以随着用户编辑而改变参数，但一次 Evaluation 必须针对确定的输入快照运行。它不能一边计算一边偷偷修改权威 Scene Graph。
+
+## 0. 六项核心架构决议
+
+| 编号 | 决议 | 解决的问题 |
+| --- | --- | --- |
+| FE-001 | 类型化 Feature Schema，支持几何类型、单位和坐标空间 | 防止 Agent 生成不可执行操作 |
+| FE-002 | 声明式参数约束 + 求解器 + 执行后几何验证 | 保留设计意图 |
+| FE-003 | 显式依赖为基础，受控动态依赖为扩展 | 支持条件建模与局部重算 |
+| FE-004 | 语义引用 + Kernel 拓扑演化记录 + 失效检测 | 缓解拓扑身份问题 |
+| FE-005 | 原子 Feature、复合 Feature 与执行融合分离 | 平衡 Agent 规划粒度和计算成本 |
+| FE-006 | 统一 Kernel Adapter Contract | 允许 OCCT、Manifold、Blender 等后端共存 |
+
+我还建议引入一个新的核心模块：
+
+Feature Registry（特征注册中心）。
+
+它保存所有 Feature 的类型定义、参数 Schema、输入输出契约、实现版本、后端能力、成本模型和验证规则。
+
+Agent 通过 Feature Registry 发现软件具有哪些建模能力；人类编辑器通过相同的元数据生成属性面板；Evaluator 则依据相同的 Schema 进行执行前验证。
+
+这样，新开发一个 Feature，可以同时扩展 GUI、脚本 API、Agent 工具和增量计算系统。
+
+## 1. 整体执行架构
+
+Human Editor
+
+视口操作 · 参数编辑 · 建模工具
+
+Agent Planner
+
+目标分解 · 工具发现 · 方案生成
+
+Modeling IR / Feature Registry
+
+类型化命令 · 特征契约 · 参数 Schema
+
+Feature Compiler
+
+Type Checker
+
+Constraint Solver
+
+Graph Planner
+
+Incremental Feature Runtime
+
+Dependency Tracker
+
+Action Cache
+
+Scheduler
+
+OCCT
+
+B-Rep
+
+Manifold
+
+Mesh
+
+Plugins
+
+Procedural / AI
+
+Evaluation Result
+
+Geometry Artifact · Output Digests · Topology History · Diagnostics
+
+Validation / Revision Store / Scene Binding
+
+检查结果 · 更新候选版本 · 安全提交
+
+这张图中的 Feature Compiler 是我们自主研发的重要部分。它不一定在第一版生成机器码，其职责首先是把高级建模定义转换成可验证、可调度的执行计划。
+
+# 第一部分：Feature 的类型系统
+
+## 2. Feature 应该有三个层次
+
+如果每个建模操作都直接暴露为复杂的底层网格函数，Agent 很难规划大型模型。
+
+如果只给 Agent 一个 `GenerateCastle()` 之类的黑盒函数，又会失去局部编辑能力。
+
+因此我建议采用三级 Feature。
+
+| 层次 | 示例 | 主要用途 |
+| --- | --- | --- |
+| Primitive Feature | Box、Extrude、Boolean、Fillet | 基础几何运算 |
+| Composite Feature | Window、Staircase、Roof、ColumnArray | 可复用的建模子程序 |
+| Assembly Recipe | JapaneseCastle、MechanicalAssembly | Agent 高层规划、设计参数组织 |
+
+这三个层次都应具有可发现的类型契约，但它们的执行机制不同。
+
+从高层设计到可执行 Feature DAG
+
+Castle Recipe
+
+楼层数 · 总高度 · 建筑风格 · 预算
+
+Tower Feature
+
+Roof Feature
+
+Gate Feature
+
+Lowered Primitive DAG
+
+Sketch · Extrude · Boolean · Transform · Instance
+
+Geometry Artifacts
+
+可重算几何 · 语义输出 · 材质与实例
+
+Composite Feature 应该能保留自己的对外接口，而内部由多个 Primitive Feature 构成。
+
+例如 `RoofFeature` 对外暴露 `width`、`slope`、`eave_extension`、`tile_style`，内部可以展开为轮廓生成、放样、瓦片排布和实例化。
+
+这样用户和 Agent 都可以先操作一个屋顶，再在需要时进入屋顶内部调整特定特征。
+
+## 3. Feature 类型不应只是 `Mesh` 和 `BRep`
+
+我建议引入具备单位、形状条件和几何表示的类型层次。
+
+```
+Value
+├── Scalar
+│   ├── Length
+│   ├── Angle
+│   ├── Area
+│   ├── Volume
+│   ├── Ratio
+│   ├── Count
+│   └── Boolean
+│
+├── Spatial
+│   ├── Point2 / Point3
+│   ├── Vector2 / Vector3
+│   ├── Direction
+│   ├── Plane
+│   └── Transform
+│
+├── Geometry
+│   ├── Sketch2D
+│   ├── Curve2D / Curve3D
+│   ├── Surface
+│   ├── BRepShape
+│   ├── PolygonMesh
+│   └── PointCloud
+│
+├── Collection
+│   ├── GeometrySet
+│   ├── InstanceSet
+│   └── SelectionSet
+│
+└── Reference
+    ├── SceneNodeRef
+    ├── FeatureOutputRef
+    └── SubshapeRef
+```
+
+这里还需要一个正交概念：Shape Capability（几何能力）。
+
+例如：
+
+```
+Geometry<BRep, ClosedSolid>
+Geometry<BRep, OpenShell>
+Geometry<Mesh, ManifoldClosed>
+Geometry<Mesh, ArbitrarySurface>
+```
+
+同为 Mesh，一个开放的地形网格和封闭的实体网格，能够安全执行的操作并不完全相同。
+
+### 3.1 定义 Operation Signature
+
+```
+struct FeatureSignature {
+    operation: OperationId,
+    version: SemVersion,
+
+    inputs: Vec<PortSchema>,
+    parameters: Vec<ParameterSchema>,
+    outputs: Vec<PortSchema>,
+
+    required_capabilities: CapabilitySet,
+}
+```
+
+例如：
+
+```
+BRepExtrude:
+    profile: Geometry<PlanarProfile>
+    distance: Length
+    direction: Direction3
+
+    -> Geometry<BRep>
+```
+
+具体输出是 Solid 还是 Shell，需要根据输入轮廓是否封闭等条件确定，而不是仅靠操作名声称。
+
+### 3.2 单位和坐标空间应该进入类型检查
+
+假设 Agent 调用：
+
+```
+extrude(distance = 45°)
+```
+
+类型检查应直接拒绝，因为 `distance` 需要 Length，而非 Angle。
+
+空间坐标同样重要。
+
+```
+Point3<WorldSpace>
+Point3<ObjectLocalSpace>
+```
+
+二者不能无条件进行运算。
+
+必须通过 Transform 显式转换。
+
+对于云端协作和跨 Kernel 建模，我建议内部规范为米、弧度和右手坐标系，并保留导入文件的原始单位、坐标系及换算记录。
+
+### 3.3 静态类型不足时，使用 Refinement Constraint
+
+例如，一次实体倒角要求：
+
+```
+radius > 0
+target edge exists
+result geometry valid
+```
+
+其中 `radius > 0` 可以在静态参数检查阶段验证。
+
+目标边是否存在，需要读取当前 Artifact 和拓扑身份状态。
+
+倒角结果是否有效，需要实际运行 Geometry Kernel。
+
+因此类型系统应支持不同验证阶段，而不能假设所有条件都能编译时解决。
+
+# 第二部分：参数系统与约束求解
+
+## 4. 参数必须表达设计意图
+
+对于三维建模系统，参数是一等公民。
+
+假设一个楼梯有以下要求：
+
+> 高度 3.2 米，每级台阶高度不能超过 18 厘米，楼梯宽度至少 1.1 米。
+> 
+
+Agent 应该可以声明约束，让系统计算合适的台阶数。
+
+不应该让 Agent 猜一个整数，运行失败后不断改数字。
+
+### 4.1 Parameter Schema
+
+建议每个参数包含六类信息：
+
+```
+struct ParameterSchema {
+    id: ParameterId,
+    name: String,
+    value_type: ValueType,
+
+    default: Option<TypedValue>,
+    domain: ParameterDomain,
+
+    expression: Option<Expression>,
+    documentation: String,
+}
+```
+
+`ParameterDomain` 描述参数合法范围，例如：
+
+```
+{
+  "name": "stair_height",
+  "type": "Length",
+  "default": {"meters": 3.2},
+  "domain": {
+    "min": {"meters": 0.1},
+    "max": {"meters": 20.0}
+  }
+}
+```
+
+参数应能引用其他参数：
+
+```
+stair_count = ceil(total_height / max_riser_height)
+actual_riser_height = total_height / stair_count
+```
+
+这里的表达式不是任意 Python 字符串，而应该被编译为类型化 Expression AST（抽象语法树），避免不可追踪的外部依赖和不安全代码执行。
+
+## 5. 约束分为四层
+
+我建议从第一版就区分不同的约束类型。
+
+| 约束层 | 例子 | 检查时机 |
+| --- | --- | --- |
+| 类型约束 | 长度不能赋给角度参数 | 编译期 |
+| 参数域约束 | 倒角半径必须为正 | 命令验证时 |
+| 关系约束 | 楼梯踏步数 × 踏步高度 = 总高度 | 参数求解时 |
+| 几何约束 | 零件不得干涉、网格必须封闭 | 求值后 |
+
+约束还需要区分硬约束和优化目标。
+
+例如：
+
+```
+Hard:
+  actual_riser_height <= 0.18 m
+  stair_width >= 1.1 m
+  stair_count ∈ PositiveInteger
+
+Soft:
+  minimize(stair_count)
+  prefer(actual_riser_height ≈ 0.16 m)
+```
+
+只要有一组参数满足硬约束，求解器就可以在可行解集合中寻找更优方案。
+
+如果不存在可行解，必须返回 `UNSAT_CONSTRAINTS` 和相关诊断，而不能生成一个悄悄违反要求的楼梯。
+
+### 5.1 约束求解器应该分工
+
+我建议采用三层求解架构：
+
+Parameter Evaluator：求解无环表达式与可直接计算的参数，包括单位换算、取整和简单数学函数。
+
+Geometric Constraint Solver：处理二维草图中的重合、水平、垂直、相切、等长、距离和角度等约束，可采用数值非线性方程求解。
+
+Design Optimizer：处理离散选择、多目标优化、复杂装配关系和 Agent 提出的设计偏好。
+
+不要一开始试图用一个通用优化器统一解决所有问题。草图约束、离散楼梯数和多部件干涉属于计算性质不同的问题。
+
+### 5.2 欠约束与过约束都必须有明确语义
+
+草图约束求解可能产生以下情况：
+
+| 结果 | 意义 | 系统行为 |
+| --- | --- | --- |
+| Fully Constrained | 所有需要固定的自由度已经确定 | 可直接求值 |
+| Under-Constrained | 仍有自由度 | 显示剩余 DOF；可继续编辑或使用指定锚点 |
+| Over-Constrained | 约束过多或冗余 | 返回冗余约束诊断 |
+| Inconsistent | 约束无法同时满足 | 阻止正式求值 |
+| Numerically Unstable | 数值条件不良 | 输出诊断，尝试调整求解策略 |
+
+要注意：过约束与无解不完全相同。一组重复的距离约束可能只是冗余，而另一些约束则确实相互矛盾。
+
+对于 Agent，返回“还剩两个平移自由度”会比返回“建模失败”更有价值。
+
+### 5.3 参数求解应该产生可追踪结果
+
+```
+{
+  "status": "solved",
+  "parameters": {
+    "stair_count": 18,
+    "actual_riser_height_m": 0.1777777778
+  },
+  "constraints": {
+    "violated": [],
+    "satisfied": [
+      "max_riser_height",
+      "min_stair_width"
+    ]
+  }
+}
+```
+
+对于 3.2 米高度、每级不超过 0.18 米的楼梯，18 级是符合高度上限的最小整数值。
+
+但是如果工程还有水平投影长度、平台数量、建筑规范等要求，需要把这些约束一起纳入求解。这也意味着 Feature Registry 应允许领域插件加入特定的规范和检查器。
+
+## 6. 参数修改怎样触发增量计算？
+
+参数不应该只存储在 Feature 内部的一个不透明 JSON 对象里。
+
+应建立参数级依赖。
+
+```
+TowerHeight
+   ├── StairCount
+   │     └── StairGeometry
+   ├── WallHeight
+   │     └── WallGeometry
+   └── RoofElevation
+         └── RoofTransform
+```
+
+Agent 修改 `TowerHeight` 时，参数求解层先传播数值变化，再由 Feature Evaluator 判断哪些几何输出需要失效。
+
+一种理想情况是：
+
+```
+TowerHeight: 3.20 → 3.21
+StairCount: 18 → 18
+```
+
+如果某个下游 Feature 只依赖台阶数，它就没有必要重新计算。
+
+如果另一个 Feature 依赖实际踏步高度，则仍然需要重新计算。
+
+这要求依赖系统同时考虑参数值和实际被消费的输出端口。
+
+Salsa 的 red-green 算法就提供了可参考的增量重验证思路：输入发生变化后，系统检查实际依赖及结果是否改变，以避免不必要的下游计算。我们可以参考其计算模型，但几何调度、跨进程缓存与拓扑语义仍需独立实现。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+# 第三部分：动态依赖与 Feature Graph 演化
+
+## 7. 为什么固定 DAG 还不够？
+
+简单的参数化建模可以预先声明所有依赖。
+
+但 Agent 会遇到这种需求：
+
+> 如果城楼高度超过 15 米，就增加一层支撑结构；否则保持原设计。
+> 
+
+这种条件会改变实际执行的计算分支。
+
+另一个例子：
+
+> 找出所有宽度超过 2 米的窗户，为它们生成支撑梁。
+> 
+
+这个 Feature 的输入集合由场景查询决定。随着场景变化，符合条件的窗户可能增加或减少。
+
+因此我们需要动态依赖追踪。
+
+但我建议第一版严格控制动态能力：首先支持条件 Feature 和显式集合输入，再逐步开放受控查询。不要马上允许插件执行任意不透明脚本并声称可以精确追踪它读取的全部状态。
+
+## 8. 动态依赖的三种模式
+
+| 模式 | 示例 | 推荐优先级 |
+| --- | --- | --- |
+| 静态依赖 | RoofMesh 依赖 RoofProfile | P0 |
+| 条件依赖 | 根据 TowerHeight 选择支撑生成策略 | P1 |
+| 查询依赖 | 查找所有符合条件的 Scene Node | P2 |
+
+### 8.1 条件依赖
+
+推荐定义一个显式的 `SwitchFeature`。
+
+```
+TowerHeight ──── Condition (> 15m)
+                        │
+                  SwitchFeature
+                   /          \
+           No Supports    Add Supports
+```
+
+这里需要区分选择了哪条分支与哪些分支必须执行。
+
+未被选中的分支可以不执行昂贵的几何计算，但切换条件变化后，系统必须能够发现原本未激活的分支现在变成有效输入。
+
+控制条件本身始终是依赖。
+
+### 8.2 受控动态读取
+
+我建议所有支持动态读取的 Feature，通过受控 `EvalContext` 获取数据。
+
+```
+trait EvalContext {
+    fn read_parameter(
+        &mut self,
+        feature: FeatureId,
+        parameter: ParameterId,
+    ) -> Result<TypedValue>;
+
+    fn read_output(
+        &mut self,
+        feature: FeatureId,
+        port: PortId,
+    ) -> Result<ArtifactRef>;
+
+    fn query_scene(
+        &mut self,
+        query: SceneQuery,
+    ) -> Result<SceneQueryResult>;
+}
+```
+
+`EvalContext` 在执行期间记录所有读取。
+
+```
+struct ReadDependency {
+    key: DependencyKey,
+    observed_digest: Digest,
+}
+```
+
+执行结束后形成：
+
+```
+Feature Evaluation
+  ├── Read Set
+  ├── Control Dependencies
+  ├── Produced Outputs
+  └── New Dependency Manifest
+```
+
+下一次重新计算时，系统使用这份 Read Set 判断缓存是否仍然有效。
+
+### 8.3 最难的是集合查询的完整性
+
+假设某 Feature 执行：
+
+```
+query_scene(
+  tag = "window",
+  width > 2.0m
+)
+```
+
+第一次查询得到：
+
+```
+Window A
+Window B
+```
+
+系统不能只记录 A 和 B 的版本。
+
+因为后来新增了 Window C，它同样符合条件，但 C 并不在旧的读取列表里。
+
+如果系统只跟踪 A、B，新增 C 不会触发失效，结果将出现错误。
+
+因此查询依赖必须记录：
+
+- 查询条件本身。
+- 查询发生时的相关索引状态。
+- 查询所依赖的谓词字段。
+- 集合成员变更以及可能导致成员进入或退出的属性变化。
+
+第一版可以采用保守的查询版本戳，例如按对象类型、标签和场景分区维护索引代际。
+
+相关索引发生变化时，重新执行查询。
+
+后续可以针对空间范围查询、标签查询和属性范围查询建立更细粒度的失效追踪。
+
+这类动态任务依赖的正确性已有增量构建系统研究可参考，例如 Scalable Incremental Building with Dynamic Task Dependencies 探讨了动态任务调用、依赖发现与增量重建之间的关系。
+
+[](https://www.google.com/s2/favicons?domain=https://www.mathematik.uni-marburg.de&sz=32)
+
+Philipps-Universität Marburg
+
+### 8.4 动态依赖还需要防止环
+
+例如：
+
+```
+Feature A 查询 Feature B 的结果
+Feature B 反过来查询 Feature A
+```
+
+系统必须检测环。
+
+建议：
+
+- 编译期检查静态依赖环。
+- 执行期为动态读取维护活动调用栈。
+- 发现环时返回 `DYNAMIC_DEPENDENCY_CYCLE`。
+- 动态依赖提交之前再次验证形成的图仍然有向无环。
+
+如果需要真正的反馈迭代，例如反复优化空气动力学外形，可以封装成有明确终止条件和最大迭代预算的 `IterativeSolverFeature`，而不是允许普通 Feature DAG 产生不受控循环。
+
+### 8.5 动态读取必须受执行沙箱约束
+
+只有经过 `EvalContext` 的读取才能被精确追踪。
+
+如果插件直接读取全局文件、数据库、网络或者进程环境，系统便无法保证缓存正确性。
+
+因此插件能力需要区分：
+
+- Hermetic：所有输入显式声明或由受控 Context 读取。
+- Snapshot-bound：读取指定版本的外部数据快照。
+- Non-cacheable：存在不可追踪或非确定性的依赖。
+
+Agent 可以使用这三类工具，但只有符合契约的计算才能获得安全的跨任务缓存和自动增量重算能力。
+
+# 第四部分：拓扑身份追踪与语义几何引用
+
+## 9. 拓扑身份是 Agent 长程建模的关键基础
+
+这是 RFC-003 中技术风险最高的部分。
+
+假设 Agent A 创建一个屋顶，并选择东侧屋檐边添加装饰。
+
+几小时后，Agent B 修改屋顶轮廓，新增一个转角，部分边被切分。
+
+Agent A 下一次恢复任务时，原来的边索引可能已经失效。
+
+在传统参数化 CAD 中，这就是 Topological Naming Problem。FreeCAD 文档明确指出，Pad、Cut、Fillet 等运算后的内部子形状命名变化可能破坏下游引用，即使目前的改进算法也无法保证自动解决所有歧义。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
+因此我们需要把拓扑引用的可恢复性设计成 Feature 执行契约的一部分。
+
+## 10. 三类几何身份
+
+我建议定义以下层次：
+
+| 身份 | 示例 | 生命周期 |
+| --- | --- | --- |
+| Feature Identity | `feature_roof_001` | 版本化建模历史中保持稳定 |
+| Semantic Identity | `roof.east_eave` | 在设计语义仍然成立时可重新解析 |
+| Physical Topology Identity | 当前 Artifact 中的某条 Edge | 只在特定几何产物中可靠 |
+
+第三类身份必须绑定到 Artifact。
+
+例如：
+
+```
+Artifact A
+ └── Edge 37
+
+Artifact B
+ ├── Edge 52
+ └── Edge 53
+```
+
+即使两份几何都来自同一个 RoofFeature，`Edge 37` 也不应该被当成能够永远有效的全局对象。
+
+### 10.1 SubshapeRef 结构
+
+```
+struct SubshapeRef {
+    producer: FeatureId,
+    output_port: PortId,
+
+    selector: SubshapeSelector,
+
+    expected_kind: TopologyKind,
+    cardinality: Cardinality,
+
+    binding_policy: BindingPolicy,
+}
+```
+
+选择器可以是：
+
+```
+enum SubshapeSelector {
+    SemanticRole(SemanticPath),
+
+    GeneratedFrom(FeatureId, SemanticPath),
+
+    GeometricPredicate(GeometricQuery),
+
+    ExactArtifactSubshape {
+        artifact: ArtifactId,
+        local_id: u64,
+    },
+}
+```
+
+这几种引用表达不同的稳定性承诺。
+
+其中 `ExactArtifactSubshape` 最明确，也最不适合跨拓扑修改长期持有。
+
+## 11. 每一次拓扑变化都需要产生演化记录
+
+我建议把 Topology History 定义成一个标准的 Feature 输出。
+
+例如：
+
+倒角前后的拓扑演化
+
+Before
+
+Artifact A
+
+Edge 37
+
+After
+
+Artifact B
+
+Edge 52 · Edge 53
+
+Topology Evolution
+
+Edge 37 → Split → [Edge 52, Edge 53]
+
+新的倒角面 → GeneratedFrom(Edge 37)
+
+建议记录：
+
+```
+enum TopologyEvolution {
+    Preserved {
+        old: SubshapeId,
+        new: SubshapeId,
+    },
+
+    Modified {
+        old: SubshapeId,
+        new: Vec<SubshapeId>,
+    },
+
+    Generated {
+        source: Vec<SubshapeId>,
+        result: Vec<SubshapeId>,
+    },
+
+    Deleted {
+        old: SubshapeId,
+    },
+}
+```
+
+这份记录还需要包含所属 Artifact、操作 ID、映射证据及映射是否完整的标记。
+
+OCCT 已经提供了重要的底层支持。其建模操作接口可以获取输入形状对应的 `Generated`、`Modified` 和 `IsDeleted` 信息；OCAF 的拓扑命名服务还能在文档层维护形状及其演化关系。
+
+[](https://www.google.com/s2/favicons?domain=https://dev.opencascade.org&sz=32)
+
+OCCT3D
+
++1
+
+我们可以将这些能力封装为统一的 `TopologyEvolution`，但不能假设每种 OCCT 操作都能给出完全准确和充分的历史。
+
+### 11.1 Mesh Kernel 的情况不同
+
+Manifold 也有可以利用的来源追踪机制，例如 `runOriginalID`、`faceID` 和输入 Mesh 的关联信息，可以帮助保留材质来源与部分面身份。
+
+[](https://www.google.com/s2/favicons?domain=https://manifoldcad.org&sz=32)
+
+ManifoldCAD
+
+但它与 B-Rep 的细粒度拓扑演化语义并不完全等价。
+
+因此每个 Kernel Adapter 必须明确声明它实际能够追踪到哪个粒度。
+
+```
+TopologyTrackingCapability
+ ├── None
+ ├── InputObjectProvenance
+ ├── FaceProvenance
+ ├── EdgeProvenance
+ └── FullOperationHistory
+```
+
+这是我们自定义的能力等级，不是这些库官方承诺的统一接口。
+
+## 12. 引用修复算法
+
+假设一个 Feature 之前引用 `roof.east_eave`，重新求值后需要恢复引用。
+
+我建议按证据强弱进行：
+
+1
+
+检查目标 Feature 是否仍然存在
+
+2
+
+检查新的输出中是否有直接语义角色映射
+
+3
+
+检查 Kernel 提供的拓扑演化关系
+
+4
+
+依据已声明的几何谓词筛选候选子形状
+
+5
+
+检查候选数量、拓扑类型和几何条件
+
+6
+
+唯一且通过验证则重绑定，否则明确失败
+
+例如重新求值后找到两个东侧屋檐边：
+
+```
+{
+  "status": "ambiguous",
+  "reference": "roof.east_eave",
+  "candidates": ["edge-52", "edge-53"],
+  "reason": "source_edge_split"
+}
+```
+
+如果后续操作要求一条边，那么系统不应该自动选择其中一条。
+
+可以根据 Feature 的 Cardinality 契约，决定是否允许把结果扩展为一个 Edge Set。
+
+如果要求的是：
+
+```
+Selection<Edge, ExactlyOne>
+```
+
+那么两条候选边必须构成歧义。
+
+如果要求：
+
+```
+Selection<Edge, OneOrMore>
+```
+
+且原操作明确允许使用所有后继边，则有可能继续执行。
+
+### 12.1 不要依赖一个通用置信度分数掩盖错误
+
+可以让几何匹配器为多个候选提供排序，但正式提交仍然需要满足客观条件。
+
+例如：
+
+- 语义角色一致。
+- 所属 Feature 一致。
+- 类型符合预期。
+- 相邻关系满足条件。
+- 法线或方向关系符合容差。
+- 面积或长度处于允许范围。
+- 候选数量满足 Cardinality。
+
+如果不存在唯一且符合要求的候选，返回失败比随机选择安全。
+
+### 12.2 从建模方法上主动减少不稳定引用
+
+相比等到引用损坏后再修复，我们还可以鼓励 Agent 使用更稳定的设计方式。
+
+例如，草图尽可能绑定在显式 Datum Plane（基准平面）上，而不是依赖布尔操作之后某个可能变化的面。
+
+FreeCAD 文档也建议使用基准平面、局部坐标系统和清晰的特征依赖来降低拓扑引用错误。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
+因此我们的 Feature Registry 应优先提供：
+
+```
+CreateDatumPlane
+CreateAxis
+CreateSketchOnDatum
+OffsetFromDatum
+ReferenceSemanticFace
+```
+
+并让 Agent Planner 理解这些操作比直接引用临时面索引更稳定。
+
+# 第五部分：Feature 的执行粒度
+
+## 13. 怎样决定一个 Feature 应该有多大？
+
+这是 Agent 规划与增量计算之间最关键的设计权衡。
+
+假设我们要生成一座五层城楼。
+
+有三种可能方案：
+
+方案 A：单一黑盒
+
+一个 GenerateCastle Feature 生成整座城楼。
+
+任务调度很简单，但修改一个屋檐也可能需要重新生成整座城楼。
+
+方案 B：极细粒度
+
+每条边、每块瓦片、每次变换都成为独立 Feature。
+
+局部性很强，但图规模、依赖管理和远程调度开销可能远大于几何计算本身。
+
+方案 C：分层复合特征
+
+一座城楼由楼层、屋顶、楼梯、装饰等独立特征组合。
+
+保留设计语义、局部重算能力，并允许将内部小计算融合执行。
+
+我建议采用方案 C，并将 Feature 的逻辑粒度与物理执行粒度分离。
+
+### 13.1 逻辑 Feature 和执行单元不同
+
+例如一个屋顶由以下 Feature 组成：
+
+```
+RoofProfile
+  → Loft
+  → Bevel
+  → Triangulate
+  → ComputeNormals
+```
+
+逻辑上，这是五个 Feature。
+
+它们分别拥有自己的参数、输出和依赖关系。
+
+物理执行时，如果所有操作都在同一个 Worker 中运行、数据量不大，而且中间输出不被其他 Feature 消费，可以把部分操作融合进一次 Worker 调用。
+
+```
+Execution Group:
+  Loft + Bevel + Triangulate + Normals
+```
+
+即使融合执行，逻辑 Feature 的身份也应继续保留。
+
+这样以后用户需要独立修改 Bevel 参数，系统仍然能够定位这一层建模历史。
+
+### 13.2 成本模型
+
+可以用下面的模型分析一次重新计算的成本：
+
+\[
+C = C_{\text{compute}}+
+C_{\text{serialize}}+
+C_{\text{transfer}}+
+C_{\text{schedule}}+
+C_{\text{memory}}
+\]
+
+分别表示几何计算、序列化、网络或进程间传输、任务调度和内存占用成本。
+
+如果一个 Feature 只需 20 微秒计算，而远程调度需要数毫秒，就不值得单独派发到云端。
+
+如果一个 Feature 需要 20 秒才能完成，并且其输出独立可缓存，那么将它单独交给 Worker 可能非常合理。
+
+真正的执行粒度应该由数据依赖与测量过的成本共同决定。
+
+### 13.3 我建议的第一版粒度规则
+
+- 参数和标量表达式允许非常细的逻辑节点，并优先在本地执行。
+- 简单 Transform、基础曲线计算可在同一 Worker 批量执行。
+- 布尔、倒角、网格重建等昂贵操作尽量保留独立可缓存输出。
+- 重复元素尽量通过 `InstanceSet` 表示，而不是为每个实例生成一个新的重型 Mesh Feature。
+- Composite Feature 作为规划和编辑边界，可以在运行时编译为多个执行单元。
+- GPU 推理、纹理生成和大型渲染应作为异步任务边界。
+
+## 14. Agent 应该规划 Feature 还是规划执行任务？
+
+我建议 Agent 规划的是设计目标和逻辑 Feature。
+
+执行器负责决定怎样执行它们。
+
+例如：
+
+> 为城楼建造四个对称的角楼。
+> 
+
+Agent 可以生成：
+
+```
+CreateCornerTowerPrototype
+       ↓
+CreateSymmetricInstanceSet
+       ↓
+ValidateSymmetry
+```
+
+它不需要自行决定每个顶点由哪个 CPU Worker 计算，也不需要知道某个 GPU Buffer 应上传几次。
+
+这是 Feature Compiler 和 Scheduler 的职责。
+
+### 14.1 Agent 的规划粒度可以逐级细化
+
+```
+Design Goal
+  ↓
+Assembly Recipe
+  ↓
+Composite Feature
+  ↓
+Primitive Feature DAG
+  ↓
+Execution Plan
+  ↓
+Kernel Tasks
+```
+
+当一个高层 Feature 验证失败时，Agent 可以检查其中的下级 Feature。
+
+例如：
+
+```
+RoofFeature FAILED
+   └── BevelFeature FAILED
+          └── radius exceeds geometric limit
+```
+
+Agent 可以只调整倒角半径，而不需要重新规划整座城堡。
+
+这也说明为什么 Feature 的错误诊断必须保留内部路径，而不能只返回最外层一句 `Generation Failed`。
+
+# 第六部分：跨 Kernel 的调用契约
+
+## 15. 为什么不能直接暴露 OCCT 或 Manifold 的 API？
+
+我们已经决定同时支持精密 B-Rep 与多边形 Mesh。
+
+但这两套 Kernel 对几何的定义和正确性条件不同。
+
+| 能力 | OCCT / B-Rep | Manifold / Mesh |
+| --- | --- | --- |
+| 原生表示 | 曲线、曲面、拓扑边界 | 三角网格 |
+| 精度特征 | 带几何容差的精密建模 | 浮点网格及误差控制 |
+| Boolean | B-Rep Boolean | Mesh Boolean |
+| Fillet | 可定义解析倒角/圆角 | 通常需要专门网格算法 |
+| UV | 可以通过曲面参数域与三角化映射 | 直接使用顶点/面角属性 |
+| 拓扑来源 | 支持 Generated/Modified 等演化关系 | 具备部分网格来源信息 |
+| 常见用途 | 工业产品、机械装配、CAD | 游戏资产、环境、艺术模型 |
+
+OCCT 官方文档说明了其 Boolean 算法的历史追踪、模糊容差、输入保护等机制；Manifold 则在 Mesh Boolean 和输入网格来源标识上提供了不同的能力。
+
+[](https://www.google.com/s2/favicons?domain=https://dev.opencascade.org&sz=32)
+
+OCCT3D
+
++1
+
+所以统一接口不应该抹平所有差异。
+
+我建议将跨 Kernel 的契约定义成：
+
+统一操作语义 + 显式能力协商 + 显式转换 + 统一结果格式。
+
+## 16. Kernel Capability Manifest
+
+每个 Kernel 需要注册：
+
+```
+{
+  "kernel_id": "occt",
+  "adapter_version": "1.0.0",
+  "operations": [
+    "geometry.extrude",
+    "geometry.boolean",
+    "geometry.fillet"
+  ],
+  "input_representations": [
+    "BRep",
+    "PlanarProfile"
+  ],
+  "output_representations": [
+    "BRep"
+  ],
+  "capabilities": {
+    "topology_history": "operation_dependent",
+    "supports_cancellation": true,
+    "concurrent_execution": "isolated_worker",
+    "deterministic_contract": "environment_scoped"
+  }
+}
+```
+
+这里的版本与能力是我们希望适配器提供的示例 Schema，不是 OCCT 官方发布的现成 Manifest。
+
+真正的适配器必须通过测试声明每种操作支持的取消、拓扑记录和并发能力。
+
+尤其不要直接假设一个几何库的所有 API 都是线程安全、可中断或者跨版本位级确定的。
+
+## 17. 定义统一的 KernelRequest
+
+```
+struct KernelRequest {
+    action_id: ActionId,
+
+    operation: OperationId,
+    operation_version: SemVersion,
+
+    inputs: Vec<GeometryInput>,
+    parameters: TypedParameterMap,
+
+    precision: PrecisionPolicy,
+
+    expected_outputs: Vec<PortSchema>,
+    required_capabilities: CapabilitySet,
+
+    execution: ExecutionOptions,
+}
+```
+
+其中 `PrecisionPolicy` 应当明确：
+
+```
+struct PrecisionPolicy {
+    length_tolerance_m: f64,
+    angle_tolerance_rad: f64,
+
+    relative_tolerance: f64,
+
+    quality: QualityPreset,
+}
+```
+
+精度策略不能只有一个全局 `epsilon`。
+
+B-Rep 拥有局部子形状容差；Mesh 的数值误差可能与对象尺寸、网格质量和所选算法有关。OCCT 对 B-Rep 顶点、边和面容差的定义就体现了这一差异。
+
+[](https://www.google.com/s2/favicons?domain=https://dev.opencascade.org&sz=32)
+
+OCCT3D
+
+我们的统一策略负责表达用户期望的精度要求，具体 Kernel 将其转换为受支持的参数，并在输出诊断中记录实际采用的容差。
+
+### 17.1 KernelResponse
+
+```
+struct KernelResponse {
+    action_id: ActionId,
+
+    status: ExecutionStatus,
+
+    outputs: Vec<GeometryOutput>,
+    topology_history: Option<TopologyHistory>,
+
+    diagnostics: Vec<Diagnostic>,
+    measurements: ExecutionMeasurements,
+
+    provenance: ExecutionProvenance,
+}
+```
+
+`ExecutionProvenance` 应包含：
+
+- Kernel ID 与实际版本。
+- Adapter 版本。
+- 算法与关键配置。
+- 输入 Artifact Digest。
+- 求值参数 Digest。
+- 精度策略与随机种子。
+- 输出 Artifact Digest。
+- 必要的环境兼容信息。
+
+这些信息将用于跨 Worker 缓存、结果重现、故障分析和长期工程迁移。
+
+### 17.2 Feature 执行状态
+
+建议区分：
+
+```
+Pending
+  ↓
+Validated
+  ↓
+Ready
+  ↓
+Running
+  ↓
+Succeeded / Failed / Cancelled
+  ↓
+Materialized
+  ↓
+Published
+```
+
+这里 `Materialized` 和 `Published` 更适合看作独立的产物、版本状态，而不是简单地与 Worker 执行状态共用一个单向枚举。
+
+例如 Worker 已经成功生成几何，但 Revision Store 因版本冲突拒绝发布，几何执行仍然是成功的。
+
+因此实际实现可拆成：
+
+```
+struct FeatureRunStatus {
+    execution: ExecutionStatus,
+    materialization: MaterializationStatus,
+    publication: PublicationStatus,
+}
+```
+
+这对跨分钟、跨小时的 Agent 任务尤其重要。
+
+## 18. 跨几何表示转换不能隐式发生
+
+这里我建议做一项强制决议：
+
+BRep → Mesh、Mesh → BRep 等转换必须成为显式的 Feature 节点。
+
+例如：
+
+```
+BRepSolid
+    ↓
+TessellateFeature
+    ↓
+TriangleMesh
+    ↓
+MeshSubdivision
+```
+
+而不是把 B-Rep 类型自动传给 Mesh Feature，再悄悄进行转换。
+
+### 18.1 B-Rep → Mesh
+
+这是通常较明确的近似过程，但需要保存三角化参数、精度和误差。
+
+例如：
+
+```
+Tessellate(
+  input = BRepSolid,
+  chord_tolerance = 0.001m,
+  angular_tolerance = 0.1rad
+)
+```
+
+输出 Mesh 应标记它是近似表示。
+
+如果后续要继续修改精确圆角或工程尺寸，最好回到原来的 B-Rep Feature 进行编辑。
+
+### 18.2 Mesh → B-Rep
+
+这个方向更加复杂。
+
+把三角网格简单转换为由大量平面三角面组成的 B-Rep，并不等于恢复了原始 CAD 的解析曲面和设计特征。
+
+如果要把扫描模型恢复成具有孔、倒角、圆柱和装配参数的 CAD 模型，需要引入专门的 Reverse Engineering 或 Feature Recognition 功能。
+
+因此建议定义三种不同操作：
+
+```
+MeshToFacetedBRep
+SurfaceReconstruction
+ParametricFeatureRecovery
+```
+
+它们的结果质量和可编辑性保证完全不同。
+
+Agent 可以选择这些操作，但必须看见成本、损失程度和输出能力。
+
+## 19. Kernel 选择策略
+
+Agent 不应该自行拼接 `BRepAlgoAPI_Cut` 这样的库级命令。
+
+它请求的是：
+
+```
+geometry.boolean.subtract
+```
+
+Feature Runtime 根据输入与能力要求选择适合的后端。
+
+一个简单的选择过程：
+
+```
+1. 检查输入的 Geometry Representation
+2. 检查操作语义和输出要求
+3. 过滤缺失必要能力的 Kernel
+4. 检查容差与拓扑历史要求
+5. 检查运行环境与资源限制
+6. 根据历史成功率、成本和数据位置选择
+7. 生成 KernelRequest
+```
+
+需要注意，不同 Kernel 的 Boolean 不必保证产生完全相同的拓扑结构。因此不能简单地在不重新验证的情况下互换执行后端。
+
+如果一个 Feature 的下游依赖精确的 B-Rep 面身份，那么 Mesh Boolean 就不应被当作透明替代品。
+
+我建议定义三种后端选择策略：
+
+| 策略 | 作用 |
+| --- | --- |
+| Strict | 固定指定 Kernel 及操作版本 |
+| Capability-Based | 从满足契约的后端中选择 |
+| Exploratory | 允许多个候选后端生成结果，并经过验证比较 |
+
+长程 Agent 可以在独立分支采用 Exploratory 模式探索，但正式发布路径应采用明确的能力与验证契约。
+
+# 第七部分：Agent 如何利用 Feature Execution Model？
+
+## 20. Feature Registry 应同时是 Agent 的工具发现系统
+
+传统 Agent 的工具描述一般只有函数名、参数 JSON Schema 和自然语言说明。
+
+对我们而言，这还不够。
+
+Agent 需要知道：
+
+- 这个操作能生成什么类型的几何。
+- 需要什么输入。
+- 有哪些约束。
+- 可能使哪些拓扑引用失效。
+- 是否支持保留参数化历史。
+- 大概消耗多少计算资源。
+- 是否容易失败、失败能否修复。
+- 是否适合当前建模目标。
+
+建议定义一个专门面向 Agent 的 `PlanningDescriptor`。
+
+```
+{
+  "operation": "geometry.fillet",
+  "description": "Apply rounded edges to a solid",
+  "inputs": {
+    "geometry": "Geometry<BRep>",
+    "edges": "Selection<Edge,OneOrMore>",
+    "radius": "Length"
+  },
+  "effects": {
+    "changes_topology": true,
+    "preserves_parametric_history": true,
+    "supports_topology_mapping": "kernel_dependent"
+  },
+  "cost_class": "geometry_heavy",
+  "preconditions": [
+    "selected_edges_exist",
+    "radius_positive"
+  ],
+  "validators": [
+    "geometry_valid",
+    "reference_integrity"
+  ]
+}
+```
+
+这是规划描述的简化形式。正式 Schema 应把可机器检查的条件和用于 Agent 阅读的文字说明分开。
+
+### 20.1 Agent 应通过类型和约束筛选工具
+
+例如：
+
+> 给一个导入的开放网格模型添加精确的 5mm 工业圆角。
+> 
+
+Agent 读取 Registry 后会发现：
+
+- 输入是开放 Mesh。
+- 所请求的精密 Fillet 需要 B-Rep 或支持相应精密操作的 Geometry。
+- 当前模型不满足输入契约。
+- 可以考虑先进行几何重建，但这可能存在精度和设计语义损失。
+
+因此它应返回转换计划、代价和风险，而不是盲目调用 Fillet 失败后反复尝试。
+
+这会让 Agent 的规划更多建立在软件的形式化能力上。
+
+## 21. 把编译器错误变成 Agent 可使用的修复建议
+
+Feature Compiler 不应该只返回字符串错误。
+
+建议使用结构化诊断：
+
+```
+{
+  "code": "INPUT_GEOMETRY_TYPE_MISMATCH",
+  "feature_id": "fillet-001",
+  "expected": "Geometry<BRep>",
+  "actual": "Geometry<PolygonMesh>",
+  "repair_options": [
+    {
+      "operation": "geometry.surface_reconstruction",
+      "risk": "lossy_conversion"
+    },
+    {
+      "operation": "mesh.bevel",
+      "risk": "approximate_result"
+    }
+  ]
+}
+```
+
+Agent 根据这些诊断提出修复方案。
+
+但是 `repair_options` 必须来自 Registry 中已注册且当前可用的转换或替代操作，不能让 LLM 随意编造一个不存在的工具名。
+
+### 21.1 规划器与执行器分离
+
+我建议 Agent 运行时采用：
+
+```
+Goal
+  ↓
+Planner
+  ↓
+Feature Plan
+  ↓
+Type / Constraint Check
+  ↓
+Execution Compiler
+  ↓
+Geometry Workers
+  ↓
+Validator
+  ↓
+Plan Update
+```
+
+Planner 的主要输出是 Feature Plan，而不是一大段立即执行的 Python 代码。
+
+这样当计划存在类型错误、参数不可行或者资源预算不足时，系统可以在执行大量几何计算之前指出问题。
+
+### 21.2 Agent 的计划应保存为可持久化结构
+
+例如：
+
+```
+{
+  "plan_id": "castle-plan-01",
+  "project_revision": "rev-100",
+  "steps": [
+    {
+      "step_id": "roof",
+      "feature": "architecture.roof",
+      "depends_on": ["tower_frame"],
+      "required_outputs": ["roof_mesh"]
+    },
+    {
+      "step_id": "tiles",
+      "feature": "architecture.tile_array",
+      "depends_on": ["roof"],
+      "required_outputs": ["tile_instances"]
+    }
+  ]
+}
+```
+
+这个 Agent Task DAG 与 Feature DAG 仍然是不同的结构。
+
+Feature DAG 负责建模计算的可编辑历史；Task DAG 负责 Agent 在什么时间、以什么预算和审批要求执行这些操作。
+
+Agent 的计划失败、重试、暂停和切换模型，不应破坏已提交的 Feature DAG。
+
+# 第八部分：完整执行实例——Agent 修改一座城楼
+
+## 22. 将六项设计组合起来
+
+我们用一个接近真实产品使用的案例检验架构。
+
+用户给 Agent 的任务：
+
+> 建造一座五层日本战国风格的城楼，总高度 18 米，屋檐宽度可调整，瓦片自动排列。如果高度超过 15 米，需要增加支撑结构。建筑要可编辑，最终导出 GLB。
+> 
+
+### 22.1 Agent 首先生成 Feature Plan
+
+```
+CastleRecipe
+│
+├── TowerParameters
+│     ├── height = 18m
+│     ├── floors = 5
+│     └── roof_overhang = 0.8m
+│
+├── FloorLayout
+│     └── FloorGeometry
+│
+├── WallGenerator
+│     └── WallMesh
+│
+├── RoofProfile
+│     └── RoofLoft
+│           ├── RoofGeometry
+│           └── TileLayout
+│                 └── TileInstances
+│
+├── SupportCondition
+│     └── SupportGenerator
+│
+└── Assembly
+      └── ExportGLB
+```
+
+注意，这里的 ExportGLB 属于交付或任务管线节点，不应当与永久的参数化几何 Feature 混淆。它依赖已物化的几何版本，在需要交付时执行。
+
+### 22.2 编译与求解
+
+Feature Compiler 开始检查：
+
+- `height` 是否为 Length。
+- `floors` 是否为正整数。
+- 屋顶轮廓是否满足 Loft 输入条件。
+- 支撑结构是否需要启用。
+- 是否存在依赖环。
+- 所需 Kernel 是否可用。
+- 是否满足用户指定的预算和输出格式。
+
+此时高度 18 米，因此条件 Feature 激活支撑结构分支。
+
+### 22.3 并发执行
+
+求值器发现：
+
+```
+WallGenerator
+RoofProfile
+FloorLayout
+```
+
+在依赖条件满足后可以并发运行。
+
+屋顶生成完毕后，`TileLayout` 才进入 Ready Queue。
+
+支撑结构生成器读取塔楼高度、楼层布局和必要的几何输出。
+
+### 22.4 用户在执行中修改需求
+
+用户把总高度从 18 米改为 14 米。
+
+在新的候选 Revision 中：
+
+- 楼层高度的相关参数需要重新求解。
+- 墙体和屋顶位置可能需要重新求值。
+- `SupportCondition` 从 true 变成 false。
+- 支撑结构分支不再是当前有效结果。
+- 其他未受影响的装饰、材质和资源可以继续复用。
+
+原来针对 18 米塔楼运行的 Worker，即使晚于新任务返回，也只能将结果关联到旧 Revision。
+
+它不能覆盖新版本的几何绑定。
+
+### 22.5 屋顶发生拓扑变化
+
+用户接着修改屋檐轮廓，使东侧的一条边分裂为两条。
+
+拓扑映射返回：
+
+```
+east_eave:
+    previous: edge_37
+    current:  [edge_52, edge_53]
+```
+
+如果瓦片生成器允许沿完整的东侧屋檐曲线生成瓦片，可以通过语义集合继续计算。
+
+如果某个装饰必须固定在唯一的边中点，而现有约束无法判断应选哪条边，就产生待修复引用。
+
+Agent 收到：
+
+```
+REFERENCE_AMBIGUOUS
+Feature: RoofDecoration
+Required: ExactlyOne<Edge>
+Candidates: 2
+```
+
+它可以提出新的定位规则，例如以设计基准点和曲线方向定位，或请求用户选择。
+
+### 22.6 最终验证和提交
+
+计算完成之后，系统执行：
+
+- 几何合法性检查。
+- 子拓扑引用完整性检查。
+- 参数及设计约束检查。
+- Scene Node 与 Feature Output 绑定检查。
+- GLB 导出及重新导入验证。
+- 新旧 Revision 差异生成。
+
+通过指定验证策略后，才允许将结果发布到受保护主分支。
+
+整个过程中，Agent 的任务状态可以持续存在，用户也能继续修改其他场景对象。
+
+# 第九部分：形式化执行契约与错误处理
+
+## 23. 必须定义的正确性不变量
+
+我建议将以下六项设为 Feature Runtime 的强制不变量。
+
+| 编号 | 不变量 |
+| --- | --- |
+| I-01 | 每次 Evaluation 都绑定一个不可变输入 Revision |
+| I-02 | Feature 的有效输入、参数和所需能力全部通过契约检查后才能执行 |
+| I-03 | 可缓存 Feature 的所有影响结果的依赖必须显式声明或被可靠追踪 |
+| I-04 | 每个有效输出都具有可追踪的 Artifact、操作和环境身份 |
+| I-05 | 子拓扑引用不能在失效或歧义情况下静默重绑定 |
+| I-06 | Geometry Worker 不能直接修改权威 Scene Graph 或 Branch Head |
+
+除此之外，Feature 不应该把执行失败解释为一次成功的空几何输出。
+
+例如，Boolean 结果确实为空，与 Boolean Kernel 运行失败，是完全不同的两种状态。
+
+## 24. 标准化错误分类
+
+| 错误类别 | 错误代码示例 | 恢复策略 |
+| --- | --- | --- |
+| 类型错误 | `TYPE_MISMATCH` | 重新生成 IR 或显式转换 |
+| 参数域错误 | `PARAMETER_OUT_OF_RANGE` | 修改参数 |
+| 约束错误 | `UNSAT_CONSTRAINTS` | 调整约束或目标 |
+| 依赖错误 | `DEPENDENCY_CYCLE` | 重新组织 Feature DAG |
+| 拓扑引用错误 | `AMBIGUOUS_SUBSHAPE` | 重新定位或人工确认 |
+| 数值错误 | `GEOMETRY_NUMERICAL_FAILURE` | 调整容差或算法参数 |
+| 几何错误 | `INVALID_OUTPUT_GEOMETRY` | 更换构造方法 |
+| 后端不支持 | `CAPABILITY_UNAVAILABLE` | 选择其他合法后端 |
+| 资源不足 | `RESOURCE_EXHAUSTED` | 降低复杂度或更换 Worker |
+| 版本冲突 | `STALE_INPUT_REVISION` | 重新读取并验证 |
+| 执行中断 | `WORKER_INTERRUPTED` | 从可靠检查点重试 |
+
+错误还必须携带 Feature ID、操作版本、相关参数、输入摘要及诊断证据。
+
+对于 Agent，能够恢复的错误应附带可用的修复操作；不可自动恢复的错误则进入人工审查或重新规划流程。
+
+## 25. 一个 Feature 的完整数据对象
+
+最后把前面的设计收敛为一个统一结构。
+
+```
+struct FeatureDefinition {
+    id: FeatureId,
+
+    operation: OperationId,
+    operation_version: SemVersion,
+
+    inputs: Vec<PortBinding>,
+    parameters: TypedParameterMap,
+
+    constraints: Vec<ConstraintRef>,
+
+    output_contracts: Vec<OutputContract>,
+    semantic_roles: Vec<SemanticRole>,
+
+    execution_policy: ExecutionPolicy,
+}
+```
+
+其求值产物则是另一个独立对象：
+
+```
+struct FeatureEvaluationRecord {
+    feature_id: FeatureId,
+    revision_id: RevisionId,
+
+    action_key: ActionKey,
+    actual_dependencies: Vec<DependencyDigest>,
+
+    outputs: Vec<ArtifactRef>,
+    topology_history: Option<ArtifactRef>,
+
+    diagnostics: Vec<Diagnostic>,
+    provenance: ExecutionProvenance,
+}
+```
+
+这两个结构绝对不能合并成一个持续被 Worker 修改的可变对象。
+
+`FeatureDefinition` 是版本化建模定义。
+
+`FeatureEvaluationRecord` 是某次计算的结果及证据。
+
+它们分离之后，系统才真正具备长期运行、跨 Worker 重试、结果缓存和并发隔离的基础。
+
+# 第十部分：从 RFC 到可运行的 Rust 内核
+
+## 26. 推荐新增模块
+
+结合 RFC-002，新增以下模块：
+
+```
+crates/
+│
+├── feature-types/
+│   ├── value_type.rs
+│   ├── geometry_type.rs
+│   ├── units.rs
+│   ├── signature.rs
+│   └── refinement.rs
+│
+├── feature-registry/
+│   ├── registry.rs
+│   ├── descriptor.rs
+│   ├── capabilities.rs
+│   └── planning_metadata.rs
+│
+├── feature-compiler/
+│   ├── type_checker.rs
+│   ├── constraint_checker.rs
+│   ├── graph_lowering.rs
+│   ├── dependency_analysis.rs
+│   └── execution_planner.rs
+│
+├── constraint-engine/
+│   ├── expression.rs
+│   ├── param_solver.rs
+│   ├── sketch_solver.rs
+│   └── diagnostics.rs
+│
+├── topology-service/
+│   ├── subshape_ref.rs
+│   ├── history.rs
+│   ├── provenance.rs
+│   └── resolver.rs
+│
+├── kernel-interface/
+│   ├── request.rs
+│   ├── response.rs
+│   ├── precision.rs
+│   └── adapter.rs
+│
+└── feature-runtime/
+    ├── eval_context.rs
+    ├── dynamic_dependencies.rs
+    ├── materialization.rs
+    └── execution.rs
+```
+
+此外要补充两条插件安全边界。
+
+第一，第三方 Feature 插件应以声明的能力访问资源，默认不能直接读写宿主进程的私有状态。
+
+第二，运行时必须区分受信任的本地插件与在云端执行的不可信脚本。插件注册成功只表示接口合法，不代表可以获得完整文件系统或网络权限。
+
+## 27. 第一版应该实现哪些 Feature？
+
+我建议 P0 控制在大约 15 个基础操作，优先选择能够完整验证类型系统、参数约束、依赖和拓扑来源的操作。
+
+| 组别 | P0 Feature | 关键测试 |
+| --- | --- | --- |
+| 基础几何 | Box、Cylinder | 类型、单位、基础语义 |
+| 草图 | RectangleProfile、CircleProfile | 参数和约束 |
+| 实体建模 | Extrude、BooleanUnion、BooleanSubtract | B-Rep、历史追踪 |
+| 参数编辑 | ParameterExpression | 增量求值 |
+| 空间变换 | Transform、Mirror | 坐标空间与对称约束 |
+| 重复几何 | LinearArray、InstanceSet | 逻辑与执行粒度 |
+| 网格转换 | Tessellate | 跨 Kernel 表示 |
+| 几何检查 | ValidateGeometry | 结构化诊断 |
+| 语义定位 | ResolveSubshape | 拓扑引用 |
+| 条件计算 | SwitchFeature | 动态依赖基础 |
+
+Fillet 很重要，但可以作为 P1 的首个复杂拓扑测试操作。它特别适合检验数值错误、子拓扑演化和引用失效。
+
+同时需要构建最少两套复合 Feature：
+
+StaircaseFeature：验证参数表达式、整数约束、实例化、修改后的增量重算。
+
+RoofFeature：验证多输入几何、曲面生成、语义子拓扑引用、条件分支和几何验证。
+
+## 28. 验收实验
+
+建议以以下七项测试决定 RFC-003 是否实现成功。
+
+| 实验 | 通过标准 |
+| --- | --- |
+| 类型安全 | 非法单位、几何表示和端口连接在执行前被拒绝 |
+| 参数求解 | 可行约束得到正确参数，不可行约束返回解释 |
+| 增量一致性 | 局部重算与指定容差下的全量重算结果一致 |
+| 动态依赖 | 条件切换、集合新增和删除不会漏掉必要重算 |
+| 拓扑引用 | 拓扑变化后正确追踪，无法唯一定位时明确报错 |
+| Kernel 兼容 | 不支持的操作被拒绝，跨表示转换显式且可验证 |
+| 长程恢复 | Worker 故障或 Revision 改变后不会错误发布旧结果 |
+
+对于结果等价测试，不能仅比较顶点数组是否逐位相等。
+
+不同合法三角化可能表示相同表面；对于精密实体，应根据几何类型选择体积、包围盒、曲面距离、拓扑合法性、子形状关系等检验方法。
+
+另外建议采用变形测试（Metamorphic Testing）。
+
+例如：
+
+- 单位换算前后，实体尺寸应相同。
+- 一次平移后，体积应保持不变。
+- 镜像两次，应在数值容差内恢复原位置和形状。
+- 改变不参与某个输出计算的参数，不应改变该输出。
+- 插入一个不会改变设计结果的冗余表达式，不应导致不必要的大规模重算。
+
+这些测试会比仅检查 `Result::Ok` 更能暴露内核错误。
+
+# RFC-003 最终决议与研究边界
+
+| 决议编号 | 最终决定 |
+| --- | --- |
+| ADR-013 | Feature 分为 Primitive、Composite、Assembly Recipe 三层 |
+| ADR-014 | Feature Registry 是 GUI、Agent 和 Kernel 共用的能力描述源 |
+| ADR-015 | 参数拥有单位类型、合法域、表达式和可验证约束 |
+| ADR-016 | 类型检查、参数求解和求值后几何验证分阶段执行 |
+| ADR-017 | 静态依赖优先，受控动态依赖通过 EvalContext 追踪 |
+| ADR-018 | 场景集合查询必须追踪谓词和成员变化，而不只是已有结果 |
+| ADR-019 | 子拓扑引用区分语义身份、来源关系与 Artifact 局部身份 |
+| ADR-020 | 通过 Topology History 和明确的歧义处理维护引用正确性 |
+| ADR-021 | 逻辑 Feature 粒度与物理执行粒度分离，允许执行融合 |
+| ADR-022 | Kernel Adapter 通过能力协商、类型化请求和统一结果交互 |
+| ADR-023 | 跨几何表示转换必须显式执行，并记录精度与语义损失 |
+| ADR-024 | Feature Definition、Evaluation Record 和 Artifact 独立版本化 |
+
+## 最终需要强调的设计判断
+
+经过这三份 RFC，我们事实上已经设计出了一个小型的、面向几何计算的编译与执行平台。
+
+它拥有类似编译器的类型检查、参数求解和执行计划生成能力，拥有类似构建系统的增量依赖追踪与缓存机制，也具备数据库中的版本隔离和事务提交思想。
+
+而 Agent 将作为它的高级规划者和使用者。
+
+我认为接下来尤其值得研究的是 如何让 Agent 生成的 Feature DAG 长期保持良好的结构质量。
+
+因为即使每个 Feature 都合法，Agent 仍可能生成一个难以维护的工程：存在过长的依赖链、反复生成相同几何、依赖不稳定的面、引入大量无意义的中间节点，或者把完全可以参数化的结构直接烘焙为 Mesh。
+
+这将成为新的技术问题：Feature Graph Optimization。
+
+它需要判断一个建模图是否满足可编辑性、稳定性、计算效率和设计语义等要求，并能在不破坏工程行为的前提下进行优化。
+
+我建议将此作为 RFC-004 的主题——Agent-Native Feature Compiler & Graph Optimizer。其中最值得深入的是高级设计意图到 Feature DAG 的编译、语义等价与重写规则、代价模型、图优化的正确性边界，以及怎样把优化结果解释给人类设计师。
+
+# RFC-004：Long-Horizon Agent-Native Feature Compiler & Graph Optimizer
+
+长程自主建模、持续规划、增量编译与可验证的工程演化 · 架构提案 v0.1
+
+我认为需要对前面三份 RFC 做一次重要的架构升级。
+
+你真正想做的，是一个能够连续工作数小时、跨天运行、经历大量设计修改和失败后，仍然能够独立把复杂三维工程推进到完成状态的 Agent。
+
+因此，RFC-004 的最高目标应该是：
+
+让 Agent 持续维护并改善一个真实、可编辑、可验证的三维工程，而不依赖某一次模型推理、某一个进程或某一个固定计划的存活。
+
+Feature Compiler、Graph Optimizer、云端调度、持久化记忆和几何内核，都服务于这个目标。
+
+## 一、重新定义「长程」
+
+我建议区分四种长程能力。
+
+| 维度 | 具体含义 | 必须解决的技术问题 |
+| --- | --- | --- |
+| 时间长程 | 任务持续数小时、数天 | 持久化、恢复、超时、资源租约 |
+| 行动长程 | 数百甚至数千个相互依赖的操作 | 规划、进度管理、工具调用、错误累积 |
+| 状态长程 | 工程经过大量修改，Agent 仍理解其真实状态 | 世界状态、增量记忆、版本一致性 |
+| 目标长程 | 用户修改需求、任务失败，Agent 仍能推进整体目标 | 持续重规划、约束管理、成果验证 |
+
+这四种能力具有不同的技术难度。
+
+例如，Temporal 已经能提供可以持续很长时间的可靠工作流执行，但这并不自动意味着 Agent 可以自主完成长期设计。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+2026 年的 LongHorizon-Harness 研究将长程执行明确视为任务状态管理问题，采用 Manager、Executor、Auditor 分离的机制，让任务状态依据外部验证证据更新。这与我们需要的三维工程 Agent 很接近。
+
+[](https://www.google.com/s2/favicons?domain=https://arxiv.org&sz=32)
+
+arXiv
+
+我认为最值得投入的是后两种：状态长程和目标长程。
+
+因为计算机可以替我们保留一个运行多天的任务，但让 Agent 在第 500 次修改时仍然清楚哪些设计决策已经成立、哪些依赖失效、下一步值得做什么，才是系统智能能力的关键。
+
+## 二、把 Long-Horizon Controller 提升为顶层架构
+
+之前的架构是：
+
+```
+Agent → Modeling IR → Feature DAG → Geometry Kernel
+```
+
+现在我们需要升级为：
+
+User Goal / Design Contract
+
+最终目标 · 约束 · 质量标准 · 预算 · 权限
+
+Long-Horizon Controller
+
+Goal Manager
+
+维护目标和验收条件
+
+World State Tracker
+
+维护已验证工程事实
+
+Plan Manager
+
+规划与动态重规划
+
+Progress Monitor
+
+判断进展与停滞
+
+Budget & Policy
+
+费用、权限、停止条件
+
+Recovery Manager
+
+检查点、故障与恢复
+
+Agent-Native Feature Compiler
+
+设计意图 → Feature Plan → 类型化 DAG → Modeling IR
+
+Graph Optimizer + Execution Scheduler
+
+优化候选图 · 增量求值 · 并行调度 · 结果缓存
+
+Scene Kernel / Geometry Kernels
+
+执行几何操作 · 生成 Artifact · 提交候选工程版本
+
+Verifier / Evidence Ledger
+
+客观检查 · 审核结果 · 更新任务状态 · 反馈下一轮
+
+验证结果反馈给 Long-Horizon Controller，驱动下一轮决策。
+
+这带来一个新的架构原则：
+
+Agent 的思考过程可以是非确定性的，但工程事实、操作记录、版本提交和任务进度更新必须由可验证的系统维护。
+
+LLM 可以重新规划，也可以更换模型。只要底层工程状态不变，新的 Agent 就能够接着工作。
+
+## 三、我们现在实际上需要管理四张不同的图
+
+之前关注 Scene Graph 和 Feature DAG。要实现真正的长程，现在至少有四个逻辑图结构。
+
+| 图结构 | 节点是什么 | 用来回答什么问题 |
+| --- | --- | --- |
+| Scene Graph | 三维对象 | 这个世界里有什么？ |
+| Feature DAG | 参数化建模计算 | 这些几何是怎样构造的？ |
+| Task DAG | 可执行的设计任务 | 接下来应该做什么？ |
+| Goal Graph | 目标、约束、验收要求 | 怎样判断项目完成了？ |
+
+另外还有跨越这些图的 Revision History 和 Evidence Ledger。
+
+例如，用户提出：
+
+> 建造一座日本战国城堡，包括主天守、两座角楼、城门、庭院。风格统一，模型可编辑，面数适合游戏，并且可以导出到 Unreal Engine。
+> 
+
+Goal Graph 保存完整性、风格、性能与导出要求。
+
+Task DAG 把工作拆为主天守、角楼、城门、庭院、材质、装配、验证等任务。
+
+Feature DAG 表达每座建筑内部的草图、挤出、布尔、阵列和参数依赖。
+
+Scene Graph 保存它们的空间组织关系及最终几何引用。
+
+这四张图不应该混为一谈。比如，用户决定取消其中一座角楼，是目标变更；Agent 调整屋顶生成的计算历史，是 Feature 变更；将角楼移动至庭院边缘，是 Scene 变更。
+
+每种修改需要触发不同的失效传播与重新规划。
+
+### 3.1 Goal Graph 将成为长期正确性的最高依据
+
+过去我们会问：“Agent 觉得模型做好了吗？”
+
+现在改为：
+
+“哪些验收条件已经有证据证明通过？哪些仍未满足？哪些因后续修改而失效？”
+
+假设 Goal Graph 是：
+
+```
+BuildCastle
+  ├── StructuralCompleteness
+  │    ├── MainKeepExists
+  │    ├── TwoTowersExist
+  │    └── CourtyardExists
+  │
+  ├── GeometricCorrectness
+  │    ├── NoInvalidTopology
+  │    └── NoUnintendedIntersections
+  │
+  ├── Editability
+  │    ├── RoofParametersEditable
+  │    └── IndependentBuildingNodes
+  │
+  ├── VisualQuality
+  │    ├── StyleConsistency
+  │    └── ReferenceAgreement
+  │
+  └── ExportQuality
+       ├── GLBValid
+       └── TriangleBudgetSatisfied
+```
+
+目标节点与其证据应明确绑定工程 Revision。
+
+例如在 Revision 70 中检查通过的 `NoUnintendedIntersections`，当 Revision 71 修改两座建筑的位置后，可能必须重新检查。
+
+长程 Agent 不能把过去已经通过的检查当作永久成立的事实。
+
+这也是为什么我们需要让目标依赖关系与几何依赖关系连接起来。
+
+# 四、长程运行的核心：可持久化的任务状态机
+
+## 4.1 让 Agent 不依赖连续上下文
+
+我建议采用一种 Manager–Executor–Verifier 模型。
+
+三个角色可以由同一个 LLM 在不同调用中承担，也可以由不同模型执行。关键是职责和读写权限的分离。
+
+| 角色 | 核心职责 | 权限 |
+| --- | --- | --- |
+| Manager | 维护目标、选择任务、重规划、分配预算 | 修改候选 Task Plan |
+| Executor | 编译 Feature、调用建模工具、生成工程变更 | 在工作分支提交候选修改 |
+| Verifier | 检查真实几何、约束、版本和完成证据 | 写入验证结果，不能直接修改模型 |
+
+Manager 可以读取 Verifier 的报告，但不能仅凭 Executor 声称“完成了”，就把任务标记为成功。
+
+这种机制的直接价值是：每次 Executor 都可以从一个全新的上下文开始工作。
+
+它只需要获得：
+
+```
+Goal Contract
+Current Project Revision
+Current Task
+Relevant Scene Context
+Relevant Feature Dependencies
+Previous Attempts
+Acceptance Criteria
+```
+
+执行完后，结构化结果写入长期存储，再交给下一次任务决策。
+
+### 4.2 持久化任务数据模型
+
+```
+struct LongHorizonRun {
+    run_id: RunId,
+    project_id: ProjectId,
+
+    goal_revision: GoalRevisionId,
+    plan_revision: PlanRevisionId,
+
+    working_branch: BranchId,
+    observed_project_revision: RevisionId,
+
+    status: RunStatus,
+    budget: ResourceBudget,
+
+    last_verified_checkpoint: CheckpointId,
+}
+```
+
+这里至少需要四种版本号：
+
+- `GoalRevisionId`：用户最新确认的目标和约束。
+- `PlanRevisionId`：当前任务计划版本。
+- `RevisionId`：三维工程的实际版本。
+- `CheckpointId`：Agent 已持久化的恢复点。
+
+这些版本必须能够独立演进。
+
+例如，Agent 正在执行 Task 28 时，用户修改了屋顶造型要求。这会产生新的 GoalRevision，但不意味着之前 27 个任务都要作废。
+
+### 4.3 任务的状态机
+
+Proposed
+
+Ready
+
+Leased
+
+Running
+
+Candidate
+
+Verifying
+
+Accepted
+
+其他合法状态：Blocked、WaitingHuman、RetryableFailure、PermanentFailure、Superseded、Cancelled。
+
+我特别建议引入两个看似不起眼的状态：
+
+`Superseded`：一个任务曾经有意义，但因为目标或工程状态变化，现在被新的任务取代。
+
+`Blocked`：任务所需的输入、依赖或资源尚未满足。
+
+例如，用户取消东侧角楼时，与它有关的旧任务应该标记为 Superseded，并记录原因。这不等于任务执行失败，也不应该一直重试。
+
+## 4.4 长程执行循环
+
+一个可落地的控制器循环应该是：
+
+```
+async def long_horizon_iteration(run_id):    state = await load_durable_state(run_id)    world = await inspect_project(        project_id=state.project_id,        revision=state.observed_project_revision,    )    changes = await detect_changes_since_checkpoint(state)    goal = await reconcile_goal(state, changes)    plan = await reconcile_plan(state, goal, world)    task = await select_ready_task(        plan=plan,        budget=state.budget,    )    if task is None:        return await decide_wait_complete_or_replan(state)    attempt = await execute_task_in_isolated_branch(task)    evidence = await verify_candidate(        task=task,        candidate=attempt,    )    await commit_task_outcome_atomically(        state=state,        task=task,        attempt=attempt,        evidence=evidence,    )    return await decide_next_transition(run_id)
+```
+
+这段代码表达逻辑，尚未包含 Worker 租约、任务去重和版本冲突处理。
+
+真正部署时，循环应由可靠工作流服务推动。控制器每一轮完成有界的工作，并将状态持久化。
+
+长程不要求一个 Python 进程始终存活，也不要求模型持续推理。
+
+当任务没有可执行步骤、正在等待 GPU、等待用户审批，或者需要延迟重新检查时，计算资源应当释放。
+
+Temporal 的 Workflow 可通过事件历史重放恢复状态；其 Long-Running Activity、Continue-As-New 等设计模式适合实现这一层，但具体几何计算和模型调用仍应放在 Activity/Worker 内。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.temporal.io&sz=32)
+
+Temporal Documentation
+
++1
+
+# 五、Agent-Native Feature Compiler：把长期设计目标编译为可持续执行的计划
+
+这里回到 RFC-004 的编译器主题。
+
+## 5.1 编译器输入不能只有自然语言
+
+我建议定义一个结构化的 `DesignContract`。
+
+```
+{
+  "goal_id": "castle-v1",
+  "project_id": "project-castle",
+  "description": "Build an editable Japanese castle",
+  "required_parts": [
+    "main_keep",
+    "gate",
+    "courtyard",
+    "corner_towers"
+  ],
+  "constraints": {
+    "corner_tower_count": 2,
+    "max_total_triangles": 400000,
+    "editable_roofs": true,
+    "export_format": "glb"
+  },
+  "acceptance_policy": {
+    "geometry_validity": "required",
+    "editability": "required",
+    "export_validation": "required",
+    "visual_review": "human_or_approved_verifier"
+  }
+}
+```
+
+这只是示例要求，不代表所有战国建筑都应采用相同的几何标准。
+
+目标契约需要经过用户确认或产品预设规则生成。Agent 可以提出补充约束，但不能擅自把用户的硬约束改成更容易完成的目标。
+
+对于难以形式化的要求，例如“城堡具有压迫感”，应保存为带参考图、风格说明和评审策略的目标，而不是伪装成能够数学证明的约束。
+
+## 5.2 六阶段编译流程
+
+01 · Intent Analysis
+
+识别对象、关系、设计约束和交付标准
+
+02 · Goal Lowering
+
+将目标细化为可以验证的子目标
+
+03 · Capability Resolution
+
+查询 Feature Registry 和可用 Kernel
+
+04 · Feature Synthesis
+
+生成候选 Composite Feature 与 DAG
+
+05 · Static Verification
+
+检查类型、单位、环、权限、依赖和预算
+
+06 · Plan Publication
+
+保存 Feature Plan、任务依赖与编译证据
+
+这里我建议采用滚动编译（Rolling Compilation）。
+
+Agent 不需要在任务开始时一次性生成整个城堡的完整 Feature DAG。
+
+第一轮只需要建立足够可靠的总体任务规划，以及近期可执行部分的 Feature 定义。
+
+随着任务完成，Agent 根据真实几何输出、验证报告和设计变化，逐步展开后续 Feature。
+
+例如：
+
+```
+Goal: Build Castle
+  │
+  ├── Main Keep
+  │    ├── Foundation   [compiled]
+  │    ├── Walls        [compiled]
+  │    └── Roof         [compiled]
+  │
+  ├── Gate               [planned]
+  ├── Courtyard          [planned]
+  └── Decorations        [deferred]
+```
+
+这样，未执行的计划不会过早绑定大量容易变化的拓扑引用，也避免长程任务花费大量计算规划最终不会执行的细节。
+
+### 5.3 什么时候需要重新编译？
+
+建议由明确的事件触发：
+
+| 事件 | 应采取的操作 |
+| --- | --- |
+| 用户修改设计目标 | Goal Diff → Task Impact Analysis |
+| 用户改变已有几何 | 检查受影响 Feature 和目标依赖 |
+| Geometry Kernel 失败 | 尝试局部修复或替代实现 |
+| 子任务预算超出预期 | 调整后续计划或请求提高预算 |
+| 验证失败 | 分析原因，生成 Repair Plan |
+| 某个任务长期没有进展 | 重新评估方法、拆分任务或暂停 |
+| 新插件或新模型可用 | 可选择重评尚未执行的任务 |
+
+重规划应从最小受影响的任务子图开始。
+
+如果用户只修改城门高度，Agent 不应无故废弃已经完成的庭院、围墙和屋顶。
+
+# 六、Graph Optimizer：优化的是整个未来工作成本
+
+## 6.1 两种优化器必须分离
+
+我建议明确设置两个不同的优化层。
+
+Logical Feature Optimizer 作用于持久化的 Feature DAG，优化建模计算的表达、共享与可编辑结构。
+
+Physical Execution Optimizer 作用于每次生成的执行计划，决定缓存复用、执行融合、Worker 位置、并行度和数据传输方式。
+
+例如，五个逻辑 Feature 可以继续作为五个可编辑节点存在，但 Physical Optimizer 决定将其中三个小操作融合为一次 Worker 调用。
+
+这种设计能够避免为了节省几十毫秒，把用户可见的建模历史永久压缩成一个难以编辑的黑盒。
+
+## 6.2 Graph Optimizer 的输入
+
+```
+struct OptimizationRequest {
+    project_revision: RevisionId,
+
+    feature_roots: Vec<FeatureId>,
+    goal_contract: GoalRevisionId,
+
+    workload: ExpectedWorkload,
+    resource_profile: ResourceProfile,
+
+    allowed_rewrites: RewritePolicy,
+    preservation_contract: PreservationContract,
+}
+```
+
+其中两个字段尤其重要。
+
+`ExpectedWorkload` 描述未来可能发生什么修改，例如用户经常调整屋顶宽度，或者 Agent 将多次改变建筑实例数量。
+
+`PreservationContract` 描述优化必须保留什么，例如几何结果、参数可编辑性、语义部件、拓扑引用和导出行为。
+
+因此优化器不应该只回答“当前执行哪个图最快”。
+
+它还应该考虑：采用这个图之后，未来几十次修改和重算会付出多少成本？
+
+这才符合长程目标。
+
+## 6.3 图优化规则的分类
+
+| 优化 | 例子 | 风险 |
+| --- | --- | --- |
+| 常量折叠 | `width = 2 × 3` 编译为常量 6 | 低 |
+| 死节点消除 | 移除无输出消费者、无保留理由的中间计算 | 中 |
+| 公共子表达式消除 | 多个对象共享相同生成几何 | 中 |
+| 实例化优化 | 重复生成同一部件改为共享 Prototype | 中 |
+| 执行融合 | 将连续小计算安排在同一 Worker | 较低，若不改变逻辑图 |
+| 缓存边界优化 | 为昂贵且多次复用的中间结果保存 Artifact | 低至中 |
+| 表示转换优化 | 减少重复 BRep→Mesh 转换 | 中至高 |
+| 几何运算重排 | 改变 Boolean、Fillet、Transform 顺序 | 高 |
+
+我建议第一版从前六类开始。
+
+例如有 500 片相同瓦片：
+
+```
+500 × GenerateTileGeometry
+```
+
+可以变为：
+
+```
+GenerateTilePrototype
+       ↓
+InstanceSet(500 transforms)
+```
+
+但这项优化有前置条件：每片瓦片必须没有需要独立保留的几何差异、独立拓扑编辑要求或不兼容的材质覆盖。
+
+对于艺术家可能逐片雕刻的瓦片，直接把全部对象变成一个不可分解的实例系统，会降低可编辑性。
+
+所以是否优化，需要考虑未来工作负载与用户声明的编辑需求。
+
+# 七、语义等价：图优化究竟允许改变什么？
+
+这是 Graph Optimizer 最重要的正确性边界。
+
+## 7.1 三维建模存在多种等价关系
+
+在传统编译器里，优化通常要求程序在指定观察模型下产生相同结果。
+
+但三维建模软件里有多种不同的观察方式。
+
+两个模型外观看起来一样，其内部结构可能完全不同。
+
+例如：
+
+- 一个立方体由原生参数化 BoxFeature 生成。
+- 另一个立方体由手工写入的八个顶点和十二个三角形组成。
+
+它们在渲染上可能一致，但修改宽度、维护子拓扑引用、调整倒角时，表现会不同。
+
+因此需要给等价关系分层。
+
+| 等价等级 | 必须保持什么 | 适用优化 |
+| --- | --- | --- |
+| E0：定义等价 | 公开的参数、Feature、身份和操作语义 | 极保守的结构优化 |
+| E1：计算等价 | 类型化输出和确定性计算行为 | 常量折叠、公共计算复用 |
+| E2：几何等价 | 在指定容差下的几何形状与属性 | 经过验证的几何优化 |
+| E3：视觉等价 | 指定相机、材质、光照下的视觉结果 | LOD、渲染优化 |
+| E4：目标可接受 | 满足用户的设计目标，但可能改变形状或结构 | Agent 重新设计候选 |
+
+其中 E4 不能被当成传统意义上的语义等价。
+
+它本质上是一项设计决策。
+
+例如，把一个复杂屋顶改成更简单的屋顶，可能满足面数预算和视觉要求，但它不应被自动宣布为与旧设计等价。
+
+## 7.2 建立 Preservation Contract
+
+每次优化都应该声明必须保持的可观察行为。
+
+```
+struct PreservationContract {
+    preserve_geometry: GeometryEquivalencePolicy,
+    preserve_semantic_ids: bool,
+    preserve_parameter_interface: bool,
+    preserve_feature_editability: bool,
+    preserve_material_bindings: bool,
+    preserve_subshape_references: bool,
+}
+```
+
+这里需要进一步区分：
+
+- 逻辑上具有数学证明依据的重写。
+- 依赖精度与后端假设的重写。
+- 需要实际重新计算和验证的候选变更。
+
+### 7.3 适合进入优化器的规则
+
+例如：
+
+```
+Transform(Identity, X) → X
+```
+
+在变换类型、坐标空间、实例元数据和用户可观察特征身份不受影响时，这是一条较容易证明的规则。
+
+另一个例子：
+
+```
+Multiply(Length, 1) → Length
+```
+
+对规范化后的标量表达式可以做这类简化，但仍需考虑浮点语义和错误状态。
+
+对于以下表达式：
+
+```
+BooleanSubtract(
+    BooleanUnion(A, B),
+    C
+)
+```
+
+不能随便改变布尔运算顺序，然后保证所有 B-Rep 或 Mesh Kernel 都得到相同的有效拓扑。
+
+尤其在几何容差、退化边、小面和自交参与时，数学集合上的恒等关系并不足以保证实际内核输出的拓扑、面身份与可编辑行为相同。
+
+因此，我建议 几何 Boolean 重排在第一版默认禁用，除非具备具体的适用条件和验证证据。
+
+## 7.4 引入 Rewrite Certificate
+
+每一条会改变逻辑 Feature Graph 的优化，建议生成可审计的证据记录。
+
+```
+{
+  "rewrite_id": "rewrite-001",
+  "rule": "shared_geometry_instancing",
+  "source_revision": "rev-90",
+  "target_revision": "candidate-rev-91",
+  "affected_features": [
+    "tile-generator-01",
+    "tile-generator-02"
+  ],
+  "preservation": {
+    "geometry": "verified_with_tolerance",
+    "editable_interface": "preserved",
+    "semantic_ids": "preserved"
+  },
+  "estimated_effect": {
+    "duplicate_geometry_jobs_removed": 1
+  },
+  "validation_status": "passed"
+}
+```
+
+这份记录区分了优化预估和实际验证结果，不能把预估收益直接记作已经实现的性能提升。
+
+对于真正可证明的纯表达式重写，可以保存规则及前置条件检查结果；对于需要实际几何验证的优化，应保存相关 Artifact、比较方法、容差和验证报告。
+
+### 7.5 可以借鉴 e-graph，但要限制作用范围
+
+egg 采用 Equality Saturation，在 e-graph 中表示多种等价表达式，再通过代价函数提取较优方案。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
+我认为它很适合我们的：
+
+- 参数表达式简化。
+- 坐标变换代数。
+- 部分纯函数式几何表达式。
+- 重复计算消除。
+- 严格受限的 Feature 组合规则。
+
+但不建议一开始把整个三维工程的 Feature DAG、拓扑身份和动态 Scene Query 全部丢进 e-graph。
+
+e-graph 对表达式等价非常强大，而我们的工程还具有版本、语义身份、动态依赖、几何容差和人工编辑契约，需要更大范围的正确性系统。
+
+另一个值得借鉴的是 Apache Calcite：它通过等价表达式、物理执行特性与成本模型选择执行计划。
+
+[](https://www.google.com/s2/favicons?domain=https://calcite.apache.org&sz=32)
+
+calcite.apache.org
+
++1
+
+从工程实现看，可以采用：
+
+```
+Typed Feature IR
+      ↓
+Safe Rewrite Rules
+      ↓
+Candidate Graphs
+      ↓
+Preservation Checks
+      ↓
+Cost Estimation
+      ↓
+Select Candidate
+      ↓
+Shadow Evaluation (where required)
+      ↓
+Verified Graph Revision
+```
+
+对于高风险优化，只有实际验证通过才能替换原逻辑图。
+
+# 八、代价模型必须面向整个长程任务
+
+## 8.1 最小化一次计算成本并不够
+
+假设两个方案：
+
+方案 A：生成完整城堡只需要 30 秒，但任何局部修改都需要重新生成大部分几何。
+
+方案 B：第一次生成需要 45 秒，但它拥有更细的可缓存 Feature 边界，每次局部修改只需几秒。
+
+如果 Agent 之后需要修改 100 次，方案 B 很可能更划算。
+
+所以 Graph Optimizer 的核心代价应该考虑预期生命周期。
+
+可以定义：
+
+\[
+C_{\text{life}} =
+C_{\text{initial}}+
+\sum_{i=1}^{N}p_i C_{\text{edit},i}
++C_{\text{storage}}
++C_{\text{recovery}}
++C_{\text{risk}}
+\]
+
+这里：
+
+- \(C_{\text{initial}}\)：初次生成成本。
+- \(p_i\)：未来第 \(i\) 类修改的预计发生次数或权重。
+- \(C_{\text{edit},i}\)：对应修改的预期重算成本。
+- \(C_{\text{storage}}\)：额外持久化与缓存成本。
+- \(C_{\text{recovery}}\)：失败后的重试、恢复成本。
+- \(C_{\text{risk}}\)：用预期损失或额外验证代价表达的失败风险。
+
+这些项必须统一为可比较的量纲，或通过明确的偏好进行多目标优化。不能把美元、毫秒和几何风险直接无单位地相加。
+
+正确性、用户明确的可编辑性要求以及权限，是硬约束，不应该通过降低成本来交换。
+
+### 8.2 Agent 可以选择哪种优化目标？
+
+优化器目标配置示例
+
+快速预览
+
+长程自主建模
+
+正式资产交付
+
+长程自主建模
+
+优先保留可编辑性和中间成果，降低反复修改、故障恢复与长期维护的累计成本。
+
+优化时的关注顺序
+
+1
+
+工程正确性与可恢复性
+
+2
+
+未来增量编辑成本
+
+3
+
+总计算成本
+
+4
+
+初次生成时间
+
+我建议默认采用 长程自主建模 配置。
+
+原因在于你希望 Agent 在不断演化的工程里工作，最昂贵的通常不只是一轮几何计算，而是反复失败、重新规划、上下文恢复、缓存失效和工程结构退化所带来的累计成本。
+
+# 九、长程 Agent 最容易出现的五类失败
+
+我认为这些问题比“Agent 一次能调用多少个工具”更值得研究。
+
+## 9.1 Goal Drift：目标逐渐漂移
+
+Agent 最开始要建造可编辑的日式城堡，经过许多轮之后，它可能为了快速通过视觉评测，生成一个扁平化的不可编辑 Mesh。
+
+外观可能不错，但它丢失了原始目标。
+
+解决方式：每次候选提交都要重新检查受影响的 Goal Contract，Agent 无权静默改变硬约束。
+
+## 9.2 Progress Illusion：看似有进展，实际上没有
+
+Agent 连续修改屋顶五十次，生成大量中间版本和渲染图。
+
+但视觉质量没有提高，几何合法性也没有改善。
+
+因此，任务进度不能用“已调用多少次工具”衡量。
+
+应该由被验证的目标状态变化衡量。
+
+例如：
+
+```
+Required Parts: 8/10 accepted
+Geometry Validity: passed
+Editable Requirements: 6/8 accepted
+Visual Review: pending
+Export Validation: blocked
+```
+
+每一项完成证据需要绑定 Revision、检查器版本和检查参数。
+
+当相关几何变化时，证据会被标记为待重新验证。
+
+## 9.3 Replanning Thrash：反复推翻自己的计划
+
+Agent 先决定用参数化屋顶，又改成手工网格，之后再改回参数化结构。
+
+这种反复切换可能持续消耗计算资源。
+
+我建议引入 `Decision Record`：
+
+```
+{
+  "decision_id": "decision-roof-17",
+  "problem": "roof modeling strategy",
+  "chosen": "parametric_loft",
+  "rejected": ["full_mesh_generation"],
+  "reason": "editable_roof_requirement",
+  "evidence_revision": "rev-102",
+  "revisit_when": [
+    "constraint_changes",
+    "implementation_failure",
+    "new_evidence"
+  ]
+}
+```
+
+Agent 可以推翻过去的决策，但必须提供新证据或目标变化的理由。
+
+Decision Record 是可修订的工程记忆，不是永久不可挑战的规则。
+
+## 9.4 Error Accumulation：小错误累积成整体失败
+
+比如每座塔楼各自通过几何检查，但装配之后产生穿模、重复墙体或风格不一致。
+
+所以不能只验证单个 Feature。
+
+需要分层验收：
+
+```
+Feature Validation
+        ↓
+Component Validation
+        ↓
+Assembly Validation
+        ↓
+Project Validation
+        ↓
+Delivery Validation
+```
+
+在合适的任务阶段设置 Integration Barrier，防止大量局部错误一直向下传播。
+
+## 9.5 Context Corruption：记忆不可信
+
+Agent 之前的总结写着“屋顶已经通过验证”，但之后另一个 Agent 改动了屋顶。
+
+如果新 Executor 直接相信这条文字总结，就会产生错误。
+
+因此建议采用以下优先级：
+
+当前权威工程状态与验证证据 > 任务数据库记录 > 决策记录 > 自然语言工作摘要。
+
+LLM 生成的摘要可以帮助恢复上下文，但不能覆盖 Scene Kernel 中的真实几何数据。
+
+# 十、长程 Agent 的记忆系统
+
+我建议将 Agent Memory 设计为一个专门的持久化服务。
+
+| 记忆类型 | 保存内容 | 更新依据 |
+| --- | --- | --- |
+| World Memory | Scene、Feature、Artifact、Revision | Scene Kernel |
+| Goal Memory | 用户目标、约束、审批记录 | 用户与授权策略 |
+| Task Memory | 计划、任务、尝试、检查点 | Workflow Controller |
+| Evidence Memory | 检查报告、渲染证据、评分 | Verifier |
+| Decision Memory | 方案、取舍、失败原因 | Agent 提议 + 证据 |
+| Experience Memory | 某类 Feature 在某些条件下的成功率与成本 | 多次真实执行的统计 |
+
+最后一项很有价值。
+
+例如系统发现某个 Kernel 对高面数、薄壁 Mesh 的 Boolean 经常失败，就可以在相似任务中优先选择其他后端。
+
+但 Experience Memory 必须包含版本、适用条件与样本量，不能把一个工程里的失败扩展为普遍结论。
+
+### 10.1 每个新 Executor 获取的是上下文包
+
+```
+struct AgentContextPackage {
+    goal: GoalContract,
+    task: TaskContract,
+
+    project_revision: RevisionId,
+    scene_summary: SceneSummary,
+
+    relevant_features: Vec<FeatureDescriptor>,
+    relevant_artifacts: Vec<ArtifactRef>,
+
+    previous_attempts: Vec<AttemptSummary>,
+    verified_evidence: Vec<EvidenceRef>,
+
+    active_constraints: Vec<ConstraintRef>,
+    remaining_budget: ResourceBudget,
+}
+```
+
+这份 Context Package 应按任务局部依赖生成，而不是把整个工程加载进 Prompt。
+
+尤其是数十万个 Scene Node 和几何顶点，必须由 Agent 按需查询。
+
+# 十一、让人类真正看得懂 Agent 的长期工作
+
+我建议把“解释建模过程”设计为产品的基础功能，而不是事后调用 LLM 生成一份总结。
+
+## 11.1 长程工作面板
+
+Castle Project · Agent Run
+
+长程任务工作台概念
+
+Running
+
+## 18 / 26
+
+任务已验收
+
+## Revision 84
+
+当前工作版本
+
+## 3
+
+运行中子任务
+
+当前任务
+
+城门结构
+
+验证中
+
+庭院模型
+
+已验收
+
+塔楼屋檐
+
+重新求值
+
+全场景导出
+
+等待依赖
+
+最近工程决策
+
+复用屋顶瓦片原型
+
+优化原因：减少重复网格计算。保持独立实例变换及材质覆盖能力。几何验证已通过。
+
+以上为假设项目的界面数据，用于展示产品信息组织。
+
+用户至少应该能够理解：
+
+- Agent 当前在做什么、为什么做。
+- 哪些成果已经验收。
+- 哪些工作被阻塞，阻塞原因是什么。
+- Agent 为什么修改原来的计划。
+- 本次 Graph Optimization 改变了哪些结构。
+- 优化带来的预期和实际成本变化。
+- 用户怎样介入、撤回或恢复到某个 Revision。
+
+## 11.2 图优化的解释分三层
+
+第一层：自然语言解释
+
+例如：
+
+> 我发现庭院有 120 根相同的栏杆，目前分别生成了 120 份几何。建议改成一份共享几何和 120 个实例，预计减少重复计算和存储。
+> 
+
+第二层：结构化差异
+
+```
+Before
+  120 × RailingGenerator
+
+After
+  1 × RailingGenerator
+       └── InstanceSet(120)
+```
+
+第三层：验证与代价证据
+
+展示几何一致性检查、实例独立编辑能力、CPU 时间、GPU 占用、Artifact 存储量，以及后续修改时的重算情况。
+
+不要让 LLM 直接编造优化收益。
+
+优化提案可以包含估计值，但实际效果必须来自监测数据。
+
+# 十二、真实的长程验收实验
+
+我建议直接设计一个能够暴露系统瓶颈的实验，不必等到整个软件完善。
+
+## Experiment LH-001：72 小时城堡建模任务
+
+这里的 72 小时是测试窗口，意味着任务可以跨越这个时间周期运行、暂停和恢复，不要求 Agent 连续 72 小时消耗 GPU。
+
+### 测试条件
+
+初始输入：一份城堡参考资料、场景范围、资产清单、风格要求、面数预算和可编辑性要求。
+
+在测试期间人为注入以下事件：
+
+| 阶段 | 注入事件 | 预期系统行为 |
+| --- | --- | --- |
+| 早期 | Agent 创建基础结构 | 生成 Feature DAG 并保存有效版本 |
+| 中期 | 强制终止几何 Worker | 恢复任务，不破坏已提交产物 |
+| 中期 | 修改屋顶宽度与层高 | 找出受影响依赖，重规划局部任务 |
+| 中后期 | 第二个 Agent 同时编辑庭院 | 独立分支并行工作，安全合并 |
+| 后期 | 注入一个无效 Boolean 结果 | Verifier 发现错误，启动有界修复 |
+| 后期 | 切换 Executor 使用的 LLM | 从持久化任务状态继续执行 |
+| 交付前 | 改变导出面数预算 | 重新优化相关几何与实例策略 |
+| 最终 | 关闭并重新打开客户端 | 看到一致的场景、版本和任务状态 |
+
+这个实验也应该保留失败注入的随机种子，保证可以重复进行回归测试。
+
+### 12.1 需要评测的长程指标
+
+我建议首先建立六类指标，而不是只看最终模型像不像参考图。
+
+| 指标 | 定义 |
+| --- | --- |
+| Verified Goal Completion | 已验证通过的目标比例及覆盖权重 |
+| Recovery Success | 故障后是否恢复到一致状态并继续取得进展 |
+| Productive Action Ratio | 对最终有效成果有贡献的操作占比 |
+| Rework Cost | 因失败、目标漂移和错误计划造成的重复计算成本 |
+| Change Adaptation | 用户修改目标后，系统完成必要重规划和再验证的能力 |
+| Editability Retention | 经大量编辑和优化后仍满足参数化要求的部件比例 |
+
+还应该记录总成本、LLM token、GPU 小时、CPU 时间、Artifact 字节数、人工干预次数和不同类型的失败。
+
+长程进度并不总是单调增加。用户要求推翻旧设计后，某些验收项可能重新变成待完成状态。
+
+因此指标必须按 GoalRevision 计算，不能将旧目标上的完成数量直接当作新目标上的进度。
+
+### 12.2 一个值得特别研究的指标：有效自主工作跨度
+
+我建议定义：
+
+\[
+H_{\text{effective}}
+=
+\text{在不需要人工修复系统状态的条件下，Agent 持续取得可验证进展的跨度}
+\]
+
+这个跨度可以分别用真实历时、有效执行时间和依赖动作数量报告，而不必压缩成一个分数。
+
+例如：
+
+```
+Wall Time:             36 h
+Active Execution:       7 h
+Verified Operations:  420
+Human Interventions:    2
+Recovery Events:        3
+Final Goal Completion:  91%
+```
+
+这里是指标输出示例，不是已有测试成绩。
+
+它能帮助回答：Agent 究竟可以独立把一个工程推进多远，而不只是一次能连续回答多少轮。
+
+# 十三、技术选型：先建立长程闭环，再做高级图优化
+
+我建议的技术边界如下。
+
+| 模块 | 推荐实现 |
+| --- | --- |
+| Durable Workflow | Temporal |
+| Goal / Plan / Task Store | PostgreSQL |
+| Agent Planner / Executor | Python 或 TypeScript，可替换 LLM |
+| Scene / Feature / Modeling IR | 前面 RFC 定义的 Rust 内核 |
+| Feature Compiler | Rust，独立静态分析与编译模块 |
+| Incremental Engine | Rust，反向依赖与内容寻址缓存 |
+| Graph Optimizer P0 | 自定义规则驱动 Optimizer |
+| E-Graph Experiment | egg，限定于纯表达式子图 |
+| Geometry Workers | OCCT、Manifold、Blender、生成式 3D |
+| Evidence Store | PostgreSQL 元数据 + 对象存储 Artifact |
+| UI | Agent Task Timeline + 3D Scene Diff + Optimization Review |
+
+我不会在第一版同时把 Temporal 和 LangGraph 设置为两套互相重叠的权威工作流系统。
+
+LangGraph 的 Checkpointer、Store、Interrupt 和 Time Travel 能力很值得研究。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+但既然我们已经倾向于使用 Temporal 负责长程执行，最好由我们自己的 Goal、Task、Evidence 数据模型提供跨 Agent 的权威任务状态。
+
+LangGraph 可以用于单个 Executor 内部的短期推理图，但不能与 Temporal 各自维护一份可能冲突的任务真相。
+
+### 13.1 最小可运行长程版本
+
+最小闭环可以非常小：
+
+```
+User submits DesignContract
+              ↓
+Create Durable Agent Run
+              ↓
+Manager selects one task
+              ↓
+Compile Feature DAG
+              ↓
+Execute Geometry
+              ↓
+Verify Candidate
+              ↓
+Commit Revision + Evidence
+              ↓
+Persist Checkpoint
+              ↓
+Repeat
+```
+
+只要这个循环成立，先支持 Box、Extrude、Boolean、Transform 和 InstanceSet 就可以开始测试长程能力。
+
+第一版暂时不需要复杂的 e-graph 优化、不需要数百种建模工具，也不需要一个能够生成完整游戏角色的模型。
+
+### 13.2 开发优先级需要调整
+
+我建议将整个 RFC-004 分为四个里程碑。
+
+| 优先级 | 模块 | 验收成果 |
+| --- | --- | --- |
+| P0 | Durable Controller、Task Store、Evidence Ledger | Agent 能跨进程恢复并完成多轮真实建模 |
+| P1 | Goal Diff、局部重规划、错误恢复 | 用户中途修改目标后能够继续工作 |
+| P2 | Feature Compiler、结构质量检查、基础图优化 | 自动生成可编辑 DAG，去除重复计算 |
+| P3 | 长期成本模型、e-graph、自动重写证明与优化学习 | 优化多轮建模的总成本和可维护性 |
+
+当然，P0 仍然需要一个最小 Feature Compiler 来生成合法建模操作。这里推迟的是高级图优化器，而不是编译器的基本类型和依赖检查。
+
+# RFC-004 最终架构决议
+
+| 编号 | 决议 |
+| --- | --- |
+| ADR-025 | 以长程自主完成真实三维工程作为最高系统目标 |
+| ADR-026 | 引入 Long-Horizon Controller，独立于 LLM 会话与 Worker 生命周期 |
+| ADR-027 | Goal Graph、Task DAG、Feature DAG、Scene Graph 分离 |
+| ADR-028 | 任务完成状态只依据绑定 Revision 的验证证据更新 |
+| ADR-029 | 使用滚动编译，逐步展开可执行 Feature Plan |
+| ADR-030 | 重规划以受影响的局部任务子图为基本单位 |
+| ADR-031 | Logical Feature Optimizer 与 Physical Execution Optimizer 分离 |
+| ADR-032 | 图重写必须声明等价条件、保留约束和验证证据 |
+| ADR-033 | 代价优化面向预期长期修改与恢复成本 |
+| ADR-034 | Agent 决策、失败尝试和检查证据持久化，支持更换执行模型 |
+| ADR-035 | Agent 的任务进展、优化建议和工程变更对人类可解释 |
+| ADR-036 | 必须具备预算上限、停滞检测、权限边界和明确的终止条件 |
+
+## 最后一个关键判断
+
+我认为我们已经可以把项目的研发目标凝练成：
+
+构建一个能够长期自主推进三维工程的 Agent Runtime，其底层是支持增量编译、可验证几何、持久化任务与事务化世界状态的建模系统。
+
+这个定位会影响我们接下来的研发次序。
+
+例如，花一个月把 Boolean 性能提高 30%，当然可能有价值；但如果 Agent 在第 60 次操作后已经忘记目标、重复建模，或者无法从验证失败中恢复，那么整个长程系统仍然不能工作。
+
+因此，下一步我建议不再继续扩展抽象架构，而是进入 RFC-005：Durable Autonomous Modeling Runtime，把最关键的运行时真正落实为数据表、状态机、工作流代码与 Agent API。
+
+它应该具体回答：
+
+- 一个运行三天的 Agent，如何被可靠地暂停和恢复？
+- 每次推理应该携带哪些上下文，如何避免上下文无限增长？
+- 多个 Agent 如何领取任务、提交成果、合并版本，并防止重复执行？
+- Agent 如何证明自己取得了进展，判断何时修复、重新规划、请求人工干预或者停止？
+- 当任务执行到第 500 步时，怎样保证第 1 步到第 499 步积累的工程事实仍然正确？
+
+这才是我建议你优先攻克的核心技术：让 Agent 长时间、连续、有证据地推进一个不断变化的真实三维世界。
+
+# RFC-005：Durable Autonomous Modeling Runtime
+
+Agent-Native 3D Modeling System · 架构规范 v0.1 · 2026-10-26
+
+核心运行时设计
+
+这份 RFC 正式将前面四份架构设计转化为可以实施的运行时系统。
+
+我们的目标非常明确：
+
+一个 3D 建模 Agent 可以连续推进数百至数千项任务，运行数小时至数天；经历进程崩溃、模型更换、人类修改需求、多 Agent 并发和几何计算失败之后，仍然能够从可信的工程状态继续工作，最终交付可验证、可编辑的三维模型。
+
+这意味着我们需要实现的不只是 Agent Loop，而是一个可靠的自主任务操作系统。
+
+## 0. 核心架构决议
+
+我建议采用：
+
+PostgreSQL 管理权威业务状态 + Temporal 管理持久化执行 + Rust Scene Kernel 管理工程版本 + 对象存储管理不可变产物。
+
+四者各自承担不同的一致性责任。
+
+| 系统 | 权威数据 | 故障后的恢复依据 |
+| --- | --- | --- |
+| PostgreSQL | Goal、Task、Attempt、Evidence、Budget、Approval | 已提交数据库事务 |
+| Temporal | Workflow、Timer、Signal、Activity 调度及历史 | Temporal Event History |
+| Rust Scene Kernel | Scene Graph、Feature DAG、Revision、ChangeSet | 已提交工程版本 |
+| Artifact Store | Geometry、渲染图、日志、Checkpoint 内容 | 内容哈希与不可变 Blob |
+
+Temporal 的历史能够恢复 Workflow 执行，但它不会自动恢复已经崩溃的 Blender 进程或 GPU 内存。Activity 可能发生重试，外部副作用必须有幂等控制。Temporal 官方文档也明确指出 Activity 遵循至少一次执行语义。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.temporal.io&sz=32)
+
+Temporal Documentation
+
++1
+
+因此，第一条最重要的系统约束是：
+
+任何 Agent 都不能直接将一项任务标记为完成，也不能绕开 Scene Kernel 提交几何结果。
+
+任务完成必须经过候选成果、几何验证、版本一致性检查以及持久化验收记录。
+
+## 1. 总体运行架构
+
+3D Editor / Agent Control API
+
+创建任务 · 修改目标 · 暂停恢复 · 审查成果 · 查看进度
+
+Long-Horizon Controller
+
+Goal Reconciler
+
+目标变更与失效分析
+
+Task Scheduler
+
+领取任务与并发调度
+
+Progress Evaluator
+
+证据驱动的进度计算
+
+Recovery Controller
+
+租约、重试与恢复
+
+Manager
+
+任务选择、规划、重规划
+
+Executor
+
+Feature 编译与几何执行
+
+Verifier
+
+验证证据与验收裁定
+
+Durable Execution Layer
+
+Temporal
+
+Task Database
+
+Context Builder
+
+Scene Kernel
+
+Rust · Revision · Feature DAG
+
+Geometry Workers
+
+OCCT · Manifold · Blender · GPU
+
+这几个模块不必全部做成独立的微服务。第一版可以将 API、任务管理和 Context Builder 放在一个模块化后端中；Geometry Worker 和 Temporal Worker 分别运行。
+
+### 1.1 一次 Agent 任务的标准生命周期
+
+01
+
+Claim Task
+
+原子领取任务，建立租约与 Fencing Token
+
+02
+
+Build Context
+
+读取目标、工程快照、约束和历史证据
+
+03
+
+Plan / Compile
+
+生成 Feature Plan 与 Modeling IR
+
+04
+
+Execute
+
+在隔离分支执行几何计算
+
+05
+
+Verify
+
+验证几何、约束、引用与任务验收条件
+
+06
+
+Commit
+
+检查版本与租约，发布候选 Revision
+
+07
+
+Checkpoint
+
+记录证据、成本和下一步可恢复状态
+
+任何一个阶段发生故障，都应该能够明确回答：
+
+- 哪些结果已经持久化？
+- 哪些副作用可能已经执行？
+- 当前任务由哪个 Worker 合法持有？
+- 是否可以安全重试？
+- 需要恢复到哪个工程 Revision？
+- 是否必须重新验证原来的结果？
+
+# 第一部分：持久化数据模型
+
+## 2. 首先确定数据库的十个核心实体
+
+| 实体 | 主键 | 主要职责 |
+| --- | --- | --- |
+| `agent_runs` | `run_id` | 一次长期 Agent 任务 |
+| `goal_revisions` | `goal_revision_id` | 用户目标与约束版本 |
+| `plan_revisions` | `plan_revision_id` | Agent 的任务规划版本 |
+| `tasks` | `task_id` | 可调度的工作单元 |
+| `task_dependencies` | `(task_id, depends_on_id)` | 任务 DAG 依赖 |
+| `task_attempts` | `attempt_id` | 每次真实执行的记录 |
+| `evidence_records` | `evidence_id` | 验证产生的不可变证据 |
+| `goal_assessments` | `assessment_id` | 某个目标条件的验收裁定 |
+| `runtime_checkpoints` | `checkpoint_id` | 可恢复运行时状态 |
+| `runtime_events` | `event_id` | 状态变化与审计日志 |
+
+此外还需要三个横切表：
+
+`budget_accounts / budget_entries`：预算预留、实际消耗和额度释放。
+
+`approval_requests`：高风险操作的人工审批。
+
+`runtime_outbox`：将数据库里已提交的变更可靠送往 Temporal 或客户端。
+
+我们可以让 Scene Kernel 继续独立管理 `projects`、`branches`、`revisions`、`changesets`。运行时只保存这些对象的稳定 ID 和版本条件。
+
+## 3. 主运行表：agent_runs
+
+```
+CREATE TABLE agent_runs (
+    run_id UUID PRIMARY KEY,
+    project_id UUID NOT NULL,
+
+    workflow_id TEXT NOT NULL UNIQUE,
+
+    status TEXT NOT NULL CHECK (
+        status IN (
+            'created', 'running', 'pausing',
+            'paused', 'waiting_human',
+            'cancelling', 'completed',
+            'failed', 'cancelled'
+        )
+    ),
+
+    current_goal_revision UUID,
+    current_plan_revision UUID,
+
+    working_branch TEXT NOT NULL,
+    observed_scene_revision UUID NOT NULL,
+
+    checkpoint_id UUID,
+
+    control_epoch BIGINT NOT NULL DEFAULT 0,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    finished_at TIMESTAMPTZ
+);
+```
+
+`control_epoch` 是一个很重要的字段。
+
+只要用户修改了影响执行权限或任务有效性的控制状态，例如取消任务、更换目标版本、改变权限策略，就递增这个值。
+
+Worker 在执行之前获取 Epoch，正式接受成果时再次检查。
+
+这样即使某个 Worker 没有及时收到“用户已经修改要求”的通知，也不能随意提交过期结果。
+
+`observed_scene_revision` 是 Controller 最近完成协调检查的工程版本，不代表所有正在运行的 Task 都基于同一个 Revision。
+
+每个 Attempt 仍然需要独立记录自己的输入快照。
+
+## 4. 目标版本与规划版本
+
+```
+CREATE TABLE goal_revisions (
+    goal_revision_id UUID PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+
+    revision_no BIGINT NOT NULL,
+    contract_blob_hash TEXT NOT NULL,
+
+    based_on_scene_revision UUID NOT NULL,
+    created_by TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    UNIQUE(run_id, revision_no)
+);
+
+CREATE TABLE plan_revisions (
+    plan_revision_id UUID PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+
+    plan_no BIGINT NOT NULL,
+    goal_revision_id UUID NOT NULL
+        REFERENCES goal_revisions(goal_revision_id),
+
+    based_on_scene_revision UUID NOT NULL,
+    plan_blob_hash TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    UNIQUE(run_id, plan_no)
+);
+```
+
+这里的 `contract_blob_hash`、`plan_blob_hash` 指向不可变的结构化内容。
+
+这样可以避免数据库每一行重复保存庞大的 Agent 计划，同时仍然支持检索、审计和恢复。
+
+每次用户修改目标，都产生新的 `goal_revision`。以前的目标版本保持不可变。
+
+每次 Agent 重规划，都产生新的 `plan_revision`。旧计划可以被标记为 Superseded，但不允许被原地重写。
+
+这对于第 500 步出现失败后的复盘非常重要。
+
+## 5. Task：所有可执行工作的统一实体
+
+不要把 Task 当成一条聊天消息。
+
+一个 Task 必须具有稳定身份、明确输入、依赖、资源需求和验收条件。
+
+```
+CREATE TABLE tasks (
+    task_id UUID PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+
+    plan_revision_id UUID NOT NULL
+        REFERENCES plan_revisions(plan_revision_id),
+
+    task_key TEXT NOT NULL,
+    task_type TEXT NOT NULL,
+
+    status TEXT NOT NULL CHECK (
+        status IN (
+            'proposed', 'ready', 'leased',
+            'running', 'candidate', 'verifying',
+            'accepted', 'blocked', 'retry_wait',
+            'waiting_human', 'superseded',
+            'failed', 'cancelled'
+        )
+    ),
+
+    priority INTEGER NOT NULL DEFAULT 0,
+    resource_class TEXT NOT NULL,
+
+    task_spec_hash TEXT NOT NULL,
+    acceptance_spec_hash TEXT NOT NULL,
+
+    base_scene_revision UUID,
+
+    lease_owner TEXT,
+    lease_until TIMESTAMPTZ,
+    lease_epoch BIGINT NOT NULL DEFAULT 0,
+
+    claimed_control_epoch BIGINT,
+
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    max_retries INTEGER NOT NULL DEFAULT 3,
+    next_attempt_at TIMESTAMPTZ,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    UNIQUE (run_id, plan_revision_id, task_key)
+);
+
+CREATE TABLE task_dependencies (
+    task_id UUID NOT NULL REFERENCES tasks(task_id),
+    depends_on_id UUID NOT NULL REFERENCES tasks(task_id),
+
+    PRIMARY KEY (task_id, depends_on_id),
+    CHECK (task_id <> depends_on_id)
+);
+
+CREATE INDEX idx_tasks_dispatch
+ON tasks (status, priority DESC, created_at)
+WHERE status IN ('ready', 'retry_wait');
+```
+
+`task_dependencies` 还需要在应用事务或数据库触发器中验证：
+
+- 两个任务属于同一 Run。
+- 当前计划中的任务依赖合法。
+- Task DAG 不存在环。
+- 前置任务已经被当前 GoalRevision 的有效证据验收。
+
+最后一点特别重要。
+
+Task A 曾经 Accepted，并不意味着 Task B 永远可以依赖它。
+
+如果用户修改了几何，导致 Task A 的验收条件不再成立，Task B 可能需要重新阻塞、验证或者重规划。
+
+### 5.1 为什么需要 `lease_epoch`？
+
+假设有两个 Worker。
+
+Worker 租约过期后的并发竞争
+
+T0 · Worker A
+
+领取 Task-17，得到 Lease Epoch = 5，开始计算屋顶。
+
+T1 · 租约过期
+
+A 失去心跳；调度器允许任务被重新领取。
+
+T2 · Worker B
+
+得到 Lease Epoch = 6，重新执行并产生有效结果。
+
+T3 · Worker A 恢复
+
+A 尝试提交旧结果。提交服务检查 Epoch = 5，发现当前为 6，拒绝发布。
+
+这叫做 Fencing Token（栅栏令牌）。
+
+它解决了一个单纯依赖锁或心跳不能解决的问题：已经失去执行权的旧 Worker 仍然可能返回结果。
+
+这个机制要作为基础不变量：
+
+\[
+\text{CommitAllowed} \implies
+\text{LeaseEpoch}_{request}
+=
+\text{LeaseEpoch}_{current}
+\]
+
+并且同时满足：
+
+- 租约尚未失效。
+- Run 的控制 Epoch 没有不兼容变化。
+- Goal 和 Plan 仍然有效。
+- 当前工程版本满足提交前置条件。
+- 验收证据适用于拟发布的几何结果。
+
+## 6. Attempt：把失败历史从任务本体分离
+
+一个 Task 可以有多次 Attempt。
+
+例如，同一个屋顶任务：
+
+- 第一次使用 OCCT Loft，失败。
+- 第二次修改曲线约束，成功生成但验证失败。
+- 第三次调整建模方法，通过验收。
+
+这些应该是同一个 Task 的三次执行尝试。
+
+```
+CREATE TABLE task_attempts (
+    attempt_id UUID PRIMARY KEY,
+
+    task_id UUID NOT NULL REFERENCES tasks(task_id),
+    lease_epoch BIGINT NOT NULL,
+
+    worker_id TEXT NOT NULL,
+
+    status TEXT NOT NULL CHECK (
+        status IN (
+            'started', 'executing', 'verifying',
+            'verified', 'published',
+            'rejected', 'failed', 'abandoned'
+        )
+    ),
+
+    input_scene_revision UUID NOT NULL,
+    input_goal_revision UUID NOT NULL,
+    input_plan_revision UUID NOT NULL,
+
+    input_context_hash TEXT,
+    compiled_plan_hash TEXT,
+
+    candidate_revision UUID,
+    output_manifest_hash TEXT,
+    validation_report_hash TEXT,
+
+    error_code TEXT,
+    error_detail_hash TEXT,
+
+    started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    finished_at TIMESTAMPTZ,
+
+    UNIQUE (task_id, lease_epoch)
+);
+```
+
+如果采用唯一的 `lease_epoch` 对应一次调度 Attempt，Temporal 对同一 Attempt 内部的 Activity 重试不会自动创建新的 Attempt。
+
+因此需要区分：
+
+- Task Retry：一次任务尝试最终失败，再开启新的 Attempt。
+- Activity Retry：同一 Attempt 内部某个执行步骤的重试。
+- LLM Retry：同一推理步骤因超时等原因重新请求模型。
+
+这三者的次数和费用都应该独立记录。
+
+## 7. Evidence：工程成果的可信来源
+
+这是我认为整个长程系统最有价值的数据表之一。
+
+```
+CREATE TABLE evidence_records (
+    evidence_id UUID PRIMARY KEY,
+
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+    task_id UUID REFERENCES tasks(task_id),
+    attempt_id UUID REFERENCES task_attempts(attempt_id),
+
+    scene_revision UUID NOT NULL,
+    goal_revision_id UUID NOT NULL,
+
+    criterion_key TEXT NOT NULL,
+
+    validator_id TEXT NOT NULL,
+    validator_version TEXT NOT NULL,
+
+    input_digest TEXT NOT NULL,
+    result TEXT NOT NULL CHECK (
+        result IN ('pass', 'fail', 'inconclusive')
+    ),
+
+    report_blob_hash TEXT NOT NULL,
+    dependency_set_hash TEXT,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_evidence_criterion
+ON evidence_records (
+    run_id,
+    goal_revision_id,
+    criterion_key,
+    created_at DESC
+);
+```
+
+每一条 Evidence 都保存一项具体、可复查的检查结果。
+
+例如：
+
+```
+{
+  "evidence_id": "ev-roof-104",
+  "criterion": "roof_geometry_valid",
+  "scene_revision": "rev-104",
+  "validator": {
+    "id": "mesh-topology-check",
+    "version": "1.2.0"
+  },
+  "result": "pass",
+  "metrics": {
+    "non_manifold_edges": 0,
+    "degenerate_triangles": 0
+  }
+}
+```
+
+这些是示例数据，不是实际运行结果。
+
+但是仅有 Evidence 还不能解决目标进度。
+
+因为 Evidence 是一次历史检查的不可变事实，工程变化后，这份证据可能不再适用于当前状态。
+
+所以需要单独的验收裁定表。
+
+```
+CREATE TABLE goal_assessments (
+    assessment_id UUID PRIMARY KEY,
+
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+    goal_revision_id UUID NOT NULL,
+    scene_revision UUID NOT NULL,
+
+    criterion_key TEXT NOT NULL,
+
+    status TEXT NOT NULL CHECK (
+        status IN (
+            'passed', 'failed',
+            'pending', 'stale',
+            'waived'
+        )
+    ),
+
+    evidence_id UUID REFERENCES evidence_records(evidence_id),
+
+    reason_code TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+建议采用追加式评估记录，并另外维护当前验收状态的投影索引。
+
+例如：
+
+```
+Revision 104:
+  roof_geometry_valid = passed
+
+Revision 105:
+  RoofFeature changed
+
+Revision 105:
+  roof_geometry_valid = stale
+
+Revision 105:
+  geometry revalidated
+
+Revision 105:
+  roof_geometry_valid = passed
+```
+
+如果修改只涉及庭院灯光，屋顶几何检查是否仍然成立，可以根据验证器记录的实际依赖集判断。只有在已定义的适用性规则能够证明旧证据仍然有效时，才复用它。
+
+不能简单地把所有过去通过的检查永久计入完成度，也不必在每个无关修改后重新验证整个工程。
+
+## 8. Checkpoint 与预算表
+
+Checkpoint 不需要保存整个 Python 进程内存。
+
+它应该是一份可以重建 Agent 工作状态的稳定引用清单。
+
+```
+CREATE TABLE runtime_checkpoints (
+    checkpoint_id UUID PRIMARY KEY,
+
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+
+    goal_revision_id UUID NOT NULL,
+    plan_revision_id UUID NOT NULL,
+    scene_revision UUID NOT NULL,
+
+    state_manifest_hash TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+Manifest 应记录：
+
+```
+{
+  "completed_task_ids": ["task-1", "task-2"],
+  "active_attempt_ids": ["attempt-8"],
+  "decision_record_refs": ["decision-roof-1"],
+  "relevant_evidence_refs": ["evidence-1"],
+  "remaining_budget_ref": "budget-account-1",
+  "last_event_sequence": 387
+}
+```
+
+Checkpoint 是加速恢复的索引，不是覆盖数据库事实的第二个权威来源。重新启动时仍需协调租约、当前 Goal 和已提交 Revision。
+
+预算建议采用账户加流水账，而非只在 `agent_runs` 中存一个不断变化的 `remaining_tokens`。
+
+```
+CREATE TABLE budget_accounts (
+    run_id UUID PRIMARY KEY REFERENCES agent_runs(run_id),
+
+    limit_usd NUMERIC(18, 6) NOT NULL,
+    reserved_usd NUMERIC(18, 6) NOT NULL DEFAULT 0,
+    spent_usd NUMERIC(18, 6) NOT NULL DEFAULT 0,
+
+    CHECK (limit_usd >= 0),
+    CHECK (reserved_usd >= 0),
+    CHECK (spent_usd >= 0)
+);
+
+CREATE TABLE budget_entries (
+    entry_id UUID PRIMARY KEY,
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+    attempt_id UUID REFERENCES task_attempts(attempt_id),
+
+    idempotency_key TEXT NOT NULL UNIQUE,
+    entry_type TEXT NOT NULL,
+    amount_usd NUMERIC(18, 6) NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+正式实现需要在数据库事务中维持：
+
+\[
+\text{spent} + \text{reserved} \leq \text{limit}
+\]
+
+对于价格不确定的模型调用和 GPU 作业，需要预留预计最大成本或设置硬执行上限，完成后按实际用量结算。
+
+如果调用超时且供应商尚未返回确切用量，不能立即假设这次调用没有消耗费用。
+
+# 第二部分：任务状态机与并发控制
+
+## 9. Task 的合法状态转移
+
+| 当前状态 | 允许转移 | 条件 |
+| --- | --- | --- |
+| Proposed | Ready、Blocked、Superseded | 规划与依赖检查 |
+| Ready | Leased、Superseded、Cancelled | 资源与权限满足 |
+| Leased | Running、Ready、Cancelled | Worker 确认或租约失效 |
+| Running | Candidate、RetryWait、Failed、WaitingHuman | 执行结果与错误分类 |
+| Candidate | Verifying | 候选 Artifact 已持久化 |
+| Verifying | Accepted、RetryWait、WaitingHuman、Superseded | 验证和提交结果 |
+| RetryWait | Ready、Failed | 退避时间和预算允许 |
+| Blocked | Ready、Superseded | 依赖解除 |
+| WaitingHuman | Ready、Cancelled、Superseded | 收到有效审批 |
+| Accepted | Superseded | 新目标或新计划取代旧成果 |
+| Superseded | 终态 | 保留历史记录 |
+
+一个已经 Accepted 的任务，不能被直接重新设置成 Running 来覆盖旧尝试。需要创建新的任务版本或后继修复任务，并保留旧验收历史。
+
+## 10. 原子领取任务
+
+可以采用 PostgreSQL 的 `FOR UPDATE SKIP LOCKED` 实现任务并发领取。
+
+PostgreSQL 官方文档明确说明，这种机制适合多个消费者访问队列式表，但返回的是跳过被锁定行的视图，不能把它当作一般查询的全局一致性保证。
+
+[](https://www.google.com/s2/favicons?domain=https://www.postgresql.org&sz=32)
+
+PostgreSQL
+
+下面是单任务领取的核心 SQL：
+
+```
+WITH selected AS (
+    SELECT t.task_id
+    FROM tasks t
+    JOIN agent_runs r ON r.run_id = t.run_id
+    WHERE r.run_id = $1
+      AND r.status = 'running'
+      AND t.plan_revision_id = r.current_plan_revision
+      AND t.status = 'ready'
+      AND (
+          t.next_attempt_at IS NULL
+          OR t.next_attempt_at <= now()
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM task_dependencies d
+          JOIN tasks parent ON parent.task_id = d.depends_on_id
+          WHERE d.task_id = t.task_id
+            AND parent.status <> 'accepted'
+      )
+    ORDER BY t.priority DESC, t.created_at, t.task_id
+    FOR UPDATE OF t SKIP LOCKED
+    LIMIT 1
+)
+UPDATE tasks t
+SET
+    status = 'leased',
+    lease_owner = $2,
+    lease_until = now() + interval '2 minutes',
+    lease_epoch = t.lease_epoch + 1,
+    claimed_control_epoch = r.control_epoch,
+    updated_at = now()
+FROM selected s, agent_runs r
+WHERE t.task_id = s.task_id
+  AND r.run_id = t.run_id
+  AND r.status = 'running'
+  AND t.plan_revision_id = r.current_plan_revision
+RETURNING
+    t.task_id,
+    t.lease_epoch,
+    t.claimed_control_epoch,
+    t.base_scene_revision;
+```
+
+这是领取算法的核心示例，还没有包含完整的预算和资源配额控制。
+
+正式实现必须在同一个短数据库事务中：
+
+1. 领取 Task。
+2. 创建对应的 Attempt。
+3. 预留必要预算和资源配额。
+4. 写入 `TaskLeased` 审计事件。
+5. 提交事务。
+
+查询依赖的 `parent.status = accepted` 是快速筛选条件。正式允许执行之前，还需要检查前置任务的验收证据在当前目标及工程版本下是否仍然有效。
+
+### 10.1 Worker 心跳与续租
+
+Worker 定期执行：
+
+```
+UPDATE tasks
+SET lease_until = now() + interval '2 minutes'
+WHERE task_id = $1
+  AND lease_epoch = $2
+  AND lease_owner = $3
+  AND status IN ('leased', 'running', 'candidate', 'verifying')
+  AND lease_until > now()
+RETURNING task_id;
+```
+
+返回 0 行意味着 Worker 不再拥有合法租约，应停止继续执行受保护的操作，并保留适合诊断的日志。
+
+为了减少时钟漂移，租约时间使用数据库时钟。
+
+这里使用两分钟只是示例配置。真实数值需要结合 Worker 心跳间隔、网络延迟和任务成本设置。
+
+### 10.2 Temporal 与数据库租约的区别
+
+Temporal 本身具有 Activity Task 调度、重试、超时及心跳能力。
+
+为什么还要维护数据库任务租约？
+
+因为我们还需要在 Scene Kernel 提交边界上判定：
+
+这个正在返回成果的外部计算，是否仍有权改变当前工程？
+
+Temporal 维护的是执行生命周期；数据库 Fencing Token 维护的是领域写入权限。
+
+它们不能互相替代。
+
+第一版应避免再引入独立的 Redis 队列。由 Temporal 启动任务执行，PostgreSQL 负责领域层领取和确认即可。
+
+# 第三部分：Temporal 工作流设计与代码
+
+## 11. 两层 Workflow，而不是一个无限循环
+
+我建议采用以下层次：
+
+```
+AgentRunWorkflow (长期)
+│
+├── ReconcileGoalAndPlan Activity
+│
+├── ClaimReadyTasks Activity
+│
+├── ModelTaskWorkflow A (子工作流)
+│    ├── BuildContext Activity
+│    ├── PlanAndCompile Activity
+│    ├── ExecuteGeometry Activity
+│    ├── VerifyCandidate Activity
+│    └── FinalizeAttempt Activity
+│
+├── ModelTaskWorkflow B (子工作流)
+│    └── ...
+│
+├── AggregateProgress Activity
+│
+└── Continue-As-New
+```
+
+这里最重要的设计是：
+
+AgentRunWorkflow 只编排任务，不直接执行 LLM 推理、数据库读写、几何计算或网络请求。
+
+所有这些有外部副作用或非确定性的操作都进入 Activity。
+
+这是 Temporal 工作流重放正确性的要求。其官方 Python SDK 也采用 Workflow/Activity 分离来支持长程 Agent。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.temporal.io&sz=32)
+
+Temporal Documentation
+
++1
+
+### 11.1 主工作流代码
+
+下面是接近真实 Temporal Python SDK 的运行时骨架，省略 Activity 的完整数据类和数据库适配层。
+
+```
+import asynciofrom datetime import timedeltafrom temporalio import workflow@workflow.defnclass AgentRunWorkflow:    def __init__(self):        self.wake_generation = 0    @workflow.signal    def wake(self):        self.wake_generation += 1    @workflow.run    async def run(self, run_id: str):        while True:            # 数据库是业务状态的权威来源            batch = await workflow.execute_activity(                "reconcile_and_claim",                run_id,                start_to_close_timeout=timedelta(seconds=30),            )            if batch.terminal:                return batch.final_status            if batch.claims:                # 一个有界批次：并发领取多个独立任务                results = await asyncio.gather(                    *                        workflow.execute_child_workflow(                            ModelTaskWorkflow.run,                            claim,
+```
+
+这里有三个关键点。
+
+第一，`reconcile_and_claim` 是一个数据库 Activity，内部负责判断 Run 状态、目标变化、任务有效性、预算与资源配额。它必须是幂等的，或者能安全处理 Activity 重试。
+
+第二，Workflow 每次只调度一个有界批次，例如最多 4～8 个任务。并发上限还应受到项目、用户和 Worker Pool 配额约束。
+
+第三，`Continue-As-New` 发生在当前批次完成之后，避免仍有运行中 Child Workflow 时产生不符合预期的父子生命周期问题。Temporal 官方指出，父 Workflow 执行 Continue-As-New 时，正在运行的 Child Workflow 不会自动转移到新的父执行实例中。
+
+[
+
+Temporal Documentation
+
+代码中的 Activity 名称对应后面需要实现的服务方法，不能仅复制这段代码就得到完整的运行时。
+
+### 11.2 为什么需要 Continue-As-New？
+
+假设长期任务调用了 2,000 次 Agent 推理、5,000 次几何操作、数千次验证。
+
+如果所有 Activity 事件一直堆积在同一个 Temporal Workflow History 中，重放成本会持续上升。
+
+Temporal 官方建议在事件历史增长时使用 Continue-As-New；Python SDK 也提供是否建议续篇的检查接口。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.temporal.io&sz=32)
+
+Temporal Documentation
+
++1
+
+需要记住：
+
+```
+Stable Application Run ID
+       │
+       ├── Temporal Execution 1
+       ├── Temporal Execution 2
+       ├── Temporal Execution 3
+       └── ...
+```
+
+业务上的 `run_id` 始终不变。
+
+Temporal 的 Execution Run ID 可以随 Continue-As-New 改变。
+
+因此，所有长期业务状态都应该通过应用 `run_id`、Checkpoint 和数据库记录恢复，而不是依赖某个 Temporal Execution Run ID 永久不变。
+
+## 12. 子工作流：一个 Task 的完整执行
+
+```
+@workflow.defnclass ModelTaskWorkflow:    @workflow.run    async def run(self, claim: "TaskClaim"):        try:            context_ref = await workflow.execute_activity(                "build_agent_context",                claim,                start_to_close_timeout=timedelta(seconds=30),            )            plan_ref = await workflow.execute_activity(                "plan_and_compile_feature",                {                    "claim": claim,                    "context_ref": context_ref,                },                start_to_close_timeout=timedelta(minutes=5),            )            candidate_ref = await workflow.execute_activity(                "execute_geometry",                {                    "claim": claim,                    "plan_ref": plan_ref,                },                start_to_close_timeout=timedelta(hours=2),                heartbeat_timeout=timedelta(seconds=30),            )            evidence_ref = await workflow.execute_activity(                "verify_candidate",                {                    "claim": claim,                    "candidate_ref": candidate_ref,
+```
+
+这是流程骨架。正式代码必须保留结构化错误码和异常类型，而不是依靠 `str(error)` 做失败分类。
+
+`record_task_failure` 本身也可能失败，因此还需要由父工作流和数据库租约回收器提供兜底恢复。不能认为执行了 `except` 就一定完成了持久化。
+
+### 12.1 Activity Retry 应该怎样配置？
+
+不能所有错误都使用同一种 Retry Policy。
+
+| Activity | 典型重试策略 |
+| --- | --- |
+| BuildContext | 网络或数据库临时错误可短退避重试 |
+| PlanAndCompile | LLM 请求超时可重试；类型错误进入计划修复 |
+| ExecuteGeometry | Worker 中断可恢复；确定性几何错误不盲目重试 |
+| VerifyCandidate | 验证器暂时不可用可重试；验证不通过是业务结果 |
+| FinalizeAttempt | 必须有幂等键，可安全重复请求 |
+| RecordFailure | 有限重试，父工作流和租约回收器兜底 |
+
+尤其是 LLM 请求。
+
+如果某个请求已经被模型提供方成功执行，但 Worker 在收到响应之后、持久化结果之前崩溃，重新执行可能再次产生费用。
+
+我们的运行时应给每个推理步骤分配稳定的 `inference_step_id`，记录已确认的模型响应 Artifact，并在可用时使用提供方的幂等机制。
+
+没有提供方幂等支持时，不能承诺真正的 exactly-once 模型调用。
+
+我们能够严格保证的是有效工程提交的去重，而不是外部世界每一个计算动作都只执行一次。
+
+## 13. 长时间几何计算怎样心跳？
+
+假设 `ExecuteGeometry` 需要持续执行复杂场景生成。
+
+不建议让 Temporal Activity 直接在本进程中运行一个可能持续数小时的阻塞算法。
+
+更合适的是：
+
+1. Activity 向 Geometry Service 提交带幂等键的作业。
+2. Geometry Service 返回稳定的 `geometry_job_id`。
+3. Activity 查询作业状态并定期 Heartbeat。
+4. Geometry Worker 定期续租 Task 的领域租约。
+5. 作业完成后返回 Artifact 引用。
+6. Activity 保存结果，并由工作流进入下一阶段。
+
+示例：
+
+```
+from temporalio import activityimport asyncio@activity.defn(name="execute_geometry")async def execute_geometry(request: dict) -> str:    claim = request["claim"]    action_key = request["plan_ref"]    job = await geometry_service.submit(        action_key=action_key,        task_id=claim.task_id,        lease_epoch=claim.lease_epoch,    )    while True:        current = await geometry_service.inspect(job.job_id)        activity.heartbeat({            "job_id": job.job_id,            "progress": current.progress,        })        await task_service.renew_lease(            task_id=claim.task_id,            lease_epoch=claim.lease_epoch,        )        if current.status == "succeeded":            return current.artifact_ref        if current.status == "failed":            raise GeometryExecutionError(current.error_code)        await asyncio.sleep(5)
+```
+
+这是示例适配代码，`geometry_service` 和 `task_service` 是我们需要实现的客户端。
+
+这里还有一个关键行为：Activity 因超时或取消失去执行权时，应尽力取消外部 Job；如果取消未及时成功，最终提交仍由 Fencing Token 拒绝。
+
+Temporal Heartbeat 可以携带可恢复的进度信息，在 Activity 重试时供新的执行尝试读取。官方 Python SDK 提供 `activity.heartbeat` 和 `heartbeat_details`。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
+不过，对于长程建模，我们主要依赖外部稳定的 `geometry_job_id` 和 Artifact Checkpoint 来恢复，而不是把大量几何进度数据放进 Temporal History。
+
+## 14. 暂停、继续和取消的语义
+
+暂停是一项容易设计错误的功能。
+
+我建议明确提供两种暂停：
+
+| 类型 | 行为 |
+| --- | --- |
+| Graceful Pause | 不领取新任务；当前任务完成候选阶段后停止继续调度 |
+| Immediate Pause | 请求取消当前执行；允许正在运行的不可中断 Kernel 最终返回并丢弃过期发布权 |
+
+在第一版，可以先实现 Graceful Pause。
+
+暂停后的 Run 状态为 `paused`，但相关 Workspace、Branch、Goal、Task、Evidence 和 Checkpoint 都保留。
+
+恢复时：
+
+```
+Resume Requested
+       ↓
+Verify Current Goal Revision
+       ↓
+Inspect Outstanding Leases
+       ↓
+Reconcile Project Revision
+       ↓
+Rebuild Ready Tasks
+       ↓
+Continue Execution
+```
+
+取消任务时，建议先递增 `control_epoch` 并撤销未来发布权限，再向 Temporal 和相关 Worker 发送取消信号。
+
+这样即使某个 GPU Worker 没有立即停止，也不能把取消之后的结果发布到受保护工程分支。
+
+# 第四部分：跨服务原子提交与版本一致性
+
+## 15. 最关键的问题：任务验收和工程发布如何保持一致？
+
+假设 Agent 已经完成屋顶：
+
+```
+Geometry Worker: Success
+Verifier: Passed
+Scene Revision: R104
+Task: Awaiting Acceptance
+```
+
+此时系统准备把成果发布到主分支。
+
+但数据库写入过程中可能崩溃：
+
+- 几何已经写入对象存储。
+- Scene Kernel 已经修改主分支。
+- Task 数据库还没有写入 Accepted。
+- Temporal 认为 FinalizeAttempt 失败，因此准备重试。
+
+如果不专门设计，这就会导致同一任务重复发布，或者工程已更新但任务状态依然错误。
+
+### 15.1 我的 P0 方案：共享一个 PostgreSQL 事务边界
+
+虽然 Scene Kernel 与 Agent Runtime 是两个逻辑模块，但我建议第一版将它们的版本元数据和任务元数据放在同一个 PostgreSQL 数据库。
+
+对象存储和 Geometry Worker 可以是独立服务。
+
+这样，最终提交可以由一个受信任的 `PublicationCoordinator` 在单个数据库事务里完成：
+
+Candidate Artifacts 已经生成并验证
+
+不可变 Blob · Validation Report · ChangeSet
+
+PostgreSQL Transaction
+
+锁定 Run、Task、Branch 的相关行
+
+检查 control_epoch 与 lease_epoch
+
+检查 Goal / Plan 与发布权限
+
+检查分支版本与几何验证证据
+
+写入 Revision、ChangeSet、Assessment
+
+更新 Branch Head 与 Task 状态
+
+写入预算结果和 Outbox Event
+
+Commit 或 Rollback
+
+这使我们可以定义非常强的性质：
+
+若一次发布事务成功，则工程分支头、关联的任务验收状态、验收证据及发布事件记录同时可见。
+
+如果事务失败，这些权威元数据修改全部回滚。
+
+已经上传但未被引用的 Blob 留给 Artifact GC 清理。
+
+这里的代价是：最初部署的 PublicationCoordinator 需要能够在同一个数据库事务中修改这两个领域的必要表。可以通过明确的内部 Repository 或存储过程实现，不意味着任意 Agent 都具有数据库写入权限。
+
+### 15.2 发布函数接口
+
+```
+struct PublishCandidateRequest {
+    run_id: RunId,
+    task_id: TaskId,
+    attempt_id: AttemptId,
+
+    lease_epoch: u64,
+    expected_control_epoch: u64,
+
+    goal_revision: GoalRevisionId,
+    plan_revision: PlanRevisionId,
+
+    expected_branch_head: RevisionId,
+
+    candidate_manifest: ArtifactId,
+    changeset: ChangeSetId,
+    validation_report: ArtifactId,
+
+    idempotency_key: String,
+}
+```
+
+发布时至少检查：
+
+```
+Task is in Verifying
+AND lease_epoch matches
+AND lease is valid
+AND run is authorized to publish
+AND control_epoch matches
+AND goal/plan revision still eligible
+AND expected branch head matches
+AND candidate validates against that branch head
+AND idempotency key has not produced a different result
+```
+
+如果条件不成立，返回结构化错误：
+
+```
+STALE_LEASE
+STALE_GOAL
+SUPERSEDED_PLAN
+BRANCH_CONFLICT
+VALIDATION_STALE
+BUDGET_EXCEEDED
+PUBLICATION_NOT_AUTHORIZED
+```
+
+### 15.3 幂等发布
+
+需要一张发布操作表：
+
+```
+CREATE TABLE publication_operations (
+    idempotency_key TEXT PRIMARY KEY,
+
+    task_id UUID NOT NULL REFERENCES tasks(task_id),
+    attempt_id UUID NOT NULL REFERENCES task_attempts(attempt_id),
+
+    request_digest TEXT NOT NULL,
+
+    status TEXT NOT NULL,
+    published_revision UUID,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+对于同一个幂等键：
+
+- 如果已有成功结果且请求摘要一致，直接返回原来的 Revision。
+- 如果幂等键相同但请求内容不同，拒绝并报告冲突。
+- 如果之前没有成功发布，继续执行合法的发布尝试。
+
+发布操作记录的成功状态、Branch Head 更新、Task Accepted 和相关 Evidence 绑定需要位于同一数据库事务中。
+
+### 15.4 为什么验证后还要检查版本？
+
+假设：
+
+```
+R104: Agent A checks geometry → passed
+
+R105: Human moves Tower
+
+Agent A attempts to publish based on R104
+```
+
+Agent A 的局部几何可能完全合法，但与 R105 合并之后可能发生结构碰撞。
+
+因此验证报告必须描述它适用的场景输入。
+
+如果分支头已经变化，需要：
+
+1. 检查 ChangeSet 是否可以安全重定位或合并。
+2. 构造基于最新工程的候选结果。
+3. 对受影响约束进行重新验证。
+4. 使用最新期望 Branch Head 提交。
+
+不能仅因为旧几何通过验证，就允许在任何未来 Revision 上无条件发布。
+
+# 第五部分：Agent 的长期上下文与记忆
+
+## 16. 不再把聊天历史当成工作记忆
+
+传统 Agent Loop 可能是：
+
+```
+messages = [
+    system_prompt,
+    user_goal,
+    tool_call_1,
+    tool_result_1,
+    ...
+    tool_call_500,
+    tool_result_500
+]
+```
+
+随着工具调用增加，上下文会越来越长。
+
+对于 3D 建模，里面还可能包含大量对象描述、几何统计和日志，最终带来成本增加、重要信息被淹没，以及旧事实与新工程状态混淆的问题。
+
+我们需要一种 Context Compiler。
+
+它为当前 Task 构造最小充分上下文，而不是机械地截取最近几千条消息。
+
+## 16.1 Context Package
+
+```
+{
+  "task": {
+    "task_id": "roof-edit-17",
+    "objective": "Extend roof eave",
+    "acceptance_criteria": [
+      "roof_geometry_valid",
+      "roof_symmetry"
+    ]
+  },
+  "authority": {
+    "goal_revision": "goal-3",
+    "scene_revision": "rev-104",
+    "plan_revision": "plan-7"
+  },
+  "scene_context": {
+    "selected_node_ids": ["roof-001"],
+    "relevant_feature_ids": ["roof-generator"]
+  },
+  "history": {
+    "previous_attempt_refs": ["attempt-1"],
+    "decision_refs": ["decision-roof-2"]
+  },
+  "capabilities": {
+    "allowed_operations": [
+      "feature.set_parameter",
+      "geometry.inspect",
+      "render.preview"
+    ]
+  },
+  "budget": {
+    "max_usd": 0.5,
+    "max_tool_calls": 20
+  }
+}
+```
+
+这是说明 Schema 的示例。正式输入应包含稳定的真实 UUID、Artifact 引用、能力令牌及具体验证参数。
+
+### 16.2 六种上下文来源
+
+| 来源 | 内容 | 是否允许 Agent 改写 |
+| --- | --- | --- |
+| Goal Contract | 当前目标、约束、验收条件 | 只能提出变更 |
+| Scene Kernel | 当前对象、Feature、几何版本 | 必须通过 Modeling IR |
+| Task Database | 任务状态、依赖、预算 | 通过受控 API |
+| Evidence Ledger | 已验证事实、失效记录 | 只能通过验证流程新增 |
+| Decision Memory | 历史设计选择与理由 | 可以提出修订 |
+| Episodic Summary | 有关之前工作的压缩叙述 | 可更新，但不是工程事实 |
+
+### 16.3 上下文生成算法
+
+我建议：
+
+```
+1. 固定 Task 的目标版本与工程快照
+2. 获取 TaskSpec 和 AcceptanceSpec
+3. 找到任务关联的 Scene Node / Feature
+4. 获取相关依赖闭包和局部几何摘要
+5. 查询过去同任务及相似任务的失败记录
+6. 检索适用的设计决策
+7. 加入必要的 Tool Schema
+8. 检查剩余预算及权限
+9. 形成结构化 Context Manifest
+10. 将 Context Manifest 的哈希保存到 Attempt
+```
+
+第 3～4 步需要利用 RFC-002 的 Scene Index 和 Feature Dependency Index。
+
+例如，Agent 要修改屋顶，不需要向它提供庭院全部树木的顶点数据。
+
+如果它后来发现需要与城门对齐，可以再调用受控 Scene Query。
+
+### 16.4 Token 预算的分配
+
+可以给 Context Compiler 设置一个分配策略。
+
+例如：
+
+| 上下文类别 | 示例预留比例 |
+| --- | --- |
+| 当前目标与硬约束 | 20% |
+| 当前任务与验收条件 | 20% |
+| 相关 Scene / Feature 摘要 | 30% |
+| 历史失败和决策 | 15% |
+| 工具 Schema 和执行规则 | 15% |
+
+这些比例只是初始配置，不是经过实验得到的最佳值。
+
+关键是硬约束和必要的任务事实不能因为上下文截断而被静默丢弃。
+
+对于 Scene、Feature 和工具详情，Agent 应通过检索、分页和按需调用获得，而不是强行把所有信息压缩成不可靠的自然语言。
+
+## 17. 长期记忆更新策略
+
+每次 Task 结束时，Executor 应当返回结构化报告：
+
+```
+{
+  "attempt_id": "attempt-17",
+  "outcome": "candidate_generated",
+  "changed_features": ["roof-generator"],
+  "candidate_revision": "candidate-104",
+  "discovered_facts": [
+    {
+      "type": "geometry_constraint",
+      "key": "roof_min_thickness",
+      "value_m": 0.12,
+      "source": "validation-report-17"
+    }
+  ],
+  "decisions": [
+    {
+      "choice": "use_parametric_loft",
+      "reason": "preserve_editability"
+    }
+  ]
+}
+```
+
+然后由独立的状态更新器进行：
+
+- 可验证工程事实的引用绑定。
+- Task 状态更新。
+- Decision Record 新增或修订。
+- 失败经验保存。
+- Context Summary 再生成。
+- Checkpoint 更新。
+
+这里应该禁止 LLM 把一段未经证实的推断直接写成已验证的工程事实。
+
+# 第六部分：动态重规划
+
+## 18. 用户修改目标之后，哪些任务应该失效？
+
+假设：
+
+```
+Goal Revision 1:
+  Castle height = 18m
+
+Goal Revision 2:
+  Castle height = 14m
+```
+
+任务 DAG：
+
+```
+Tower Layout
+     ├── Wall Geometry
+     ├── Roof Elevation
+     ├── Staircase
+     └── Support Structure
+```
+
+目标发生变化后，Controller 应生成 Goal Diff：
+
+```
+{
+  "changed_constraints": [
+    {
+      "key": "castle_height",
+      "old": 18.0,
+      "new": 14.0,
+      "unit": "m"
+    }
+  ]
+}
+```
+
+然后通过目标依赖和 Feature 依赖识别受影响任务。
+
+| 任务 | 预期处理 |
+| --- | --- |
+| Tower Layout | 重新求解 |
+| Wall Geometry | 重新求值 |
+| Roof Elevation | 调整位置 |
+| Staircase | 根据新高度重新求解 |
+| Support Structure | 重新判断条件，可能移除 |
+| Courtyard Materials | 没有相关依赖时保持有效 |
+
+关键是：只将可能受到影响的任务重新评估，不立即废弃整个 Plan。
+
+## 18.1 Replan 的输出必须是结构化差异
+
+```
+{
+  "replan_id": "replan-9",
+  "base_plan_revision": "plan-7",
+  "new_plan_revision": "plan-8",
+  "changes": [
+    {
+      "action": "supersede",
+      "task_key": "tower-supports-v1"
+    },
+    {
+      "action": "create",
+      "task_key": "tower-supports-v2"
+    },
+    {
+      "action": "keep",
+      "task_key": "courtyard-materials"
+    }
+  ],
+  "reason": "castle_height_changed"
+}
+```
+
+Controller 对这份差异执行检查：
+
+- 新任务是否满足 GoalRevision 的约束？
+- Task DAG 是否仍无环？
+- 是否有已执行任务的结果可以复用？
+- 哪些正在执行的任务需要撤销发布权？
+- 新计划是否超出资源预算？
+
+如果检查通过，才创建新的 PlanRevision。
+
+### 18.2 进行重规划时，旧任务怎样处理？
+
+我建议：
+
+- 尚未开始且已经无效的任务 → `superseded`。
+- 正在执行但输出可能仍有用的任务 → 允许完成独立候选 Artifact，但禁止无条件发布。
+- 已验收且仍符合新目标的任务 → 保留 Evidence，必要时重新确认适用性。
+- 已验收但不符合新目标的任务 → 创建后继修复或替换任务。
+- 等待人工审批的旧操作 → 如果审批对象或条件失效，取消旧审批。
+
+目标版本变化会推进 Run 的控制 Epoch，旧 Attempt 在正式发布时必须重新经过授权校验。
+
+# 第七部分：Agent Runtime API
+
+## 19. API 设计原则
+
+我建议统一使用 `/v1` 前缀，明确区分三类接口：
+
+Public API：桌面编辑器、Web 客户端和合法用户调用。
+
+Agent Tool API：Executor 通过能力令牌调用，负责查询场景、生成建模命令和提交候选产物。
+
+Internal Runtime API：Worker、Verifier 和 PublicationCoordinator 使用，不向不可信 Agent 暴露。
+
+外部 API 需要具备：
+
+- 稳定资源 ID。
+- 幂等写入键。
+- 目标版本或 `If-Match` 前置条件。
+- 可机读错误码。
+- 任务进度查询。
+- SSE 或 WebSocket 事件订阅。
+- 取消与审批能力。
+- 用户/工程/任务级权限。
+
+## 19.1 创建长程 Agent Run
+
+```
+POST /v1/projects/{project_id}/agent-runs
+Idempotency-Key: create-castle-001
+Content-Type: application/json
+```
+
+```
+{
+  "goal": {
+    "description": "Build an editable Japanese castle",
+    "required_parts": [
+      "main_keep",
+      "gate",
+      "courtyard"
+    ],
+    "export_format": "glb"
+  },
+  "execution": {
+    "mode": "autonomous",
+    "max_parallel_tasks": 4,
+    "require_approval_for_publish": true
+  },
+  "budget": {
+    "max_usd": 20.0
+  }
+}
+```
+
+返回：
+
+```
+202 Accepted
+```
+
+```
+{
+  "run_id": "run-001",
+  "status": "created",
+  "workflow_id": "model-run-run-001",
+  "goal_revision": "goal-001",
+  "working_branch": "agent/run-001"
+}
+```
+
+示例中的 ID 是简化占位符。
+
+### 创建 Run 的原子性
+
+HTTP 请求处理器不应该先向 Temporal 发送启动请求，然后再尝试写数据库。
+
+建议：
+
+```
+Database Transaction
+  ├── Insert AgentRun
+  ├── Insert GoalRevision
+  ├── Create BudgetAccount
+  ├── Record Idempotency Key
+  └── Insert WorkflowStart Outbox Event
+             ↓
+          Commit
+             ↓
+       Outbox Dispatcher
+             ↓
+        Temporal Start
+```
+
+Outbox Dispatcher 使用稳定 Workflow ID。
+
+如果在 Temporal 成功启动后、Outbox 消费确认前发生崩溃，再次投递时应识别已经存在的 Workflow，而不是生成第二个 Run。
+
+Temporal 支持 Workflow ID 冲突处理机制，可用于此类可靠启动协调。
+
+[](https://www.google.com/s2/favicons?domain=https://github.com&sz=32)
+
+GitHub
+
++1
+
+## 19.2 查询 Run 状态
+
+```
+GET /v1/agent-runs/{run_id}
+```
+
+```
+{
+  "run_id": "run-001",
+  "status": "running",
+  "goal_revision": "goal-003",
+  "plan_revision": "plan-008",
+  "scene_revision": "rev-104",
+  "progress": {
+    "required_criteria": 26,
+    "passed": 18,
+    "pending": 5,
+    "stale": 3
+  },
+  "tasks": {
+    "ready": 4,
+    "running": 3,
+    "waiting_human": 1
+  },
+  "budget": {
+    "limit_usd": 20.0,
+    "spent_usd": 7.42,
+    "reserved_usd": 1.25
+  }
+}
+```
+
+这里有一个产品层面的重要设计：进度展示应区分任务数量和目标验收情况。
+
+任务完成 80%，不代表工程目标完成 80%。
+
+## 19.3 修改目标
+
+```
+POST /v1/agent-runs/{run_id}/goal-revisions
+If-Match: "goal-003"
+Idempotency-Key: change-height-004
+```
+
+```
+{
+  "changes": [
+    {
+      "path": "/constraints/castle_height_m",
+      "value": 14.0
+    }
+  ],
+  "reason": "Reduce total building height"
+}
+```
+
+返回新的 GoalRevision。
+
+服务端执行：
+
+1. 检查用户权限。
+2. 比较预期 GoalRevision。
+3. 校验新目标。
+4. 创建新 GoalRevision。
+5. 增加 Run 的 `control_epoch`。
+6. 写入 GoalChanged 事件。
+7. Outbox 通知 Long-Horizon Controller 重新协调。
+
+目标变更请求成功意味着新目标已经持久化，不意味着受影响的几何已经重新计算完成。
+
+## 19.4 暂停、恢复、取消
+
+```
+POST /v1/agent-runs/{run_id}/pause
+```
+
+```
+{
+  "mode": "graceful"
+}
+```
+
+恢复：
+
+```
+POST /v1/agent-runs/{run_id}/resume
+```
+
+取消：
+
+```
+POST /v1/agent-runs/{run_id}/cancel
+```
+
+```
+{
+  "reason": "User cancelled modeling run"
+}
+```
+
+这些操作必须有权限校验、幂等键和审计记录。
+
+### Temporal Signal 负责唤醒，不代替数据库提交
+
+数据库里先保存控制命令和控制 Epoch，然后通过 Outbox 发送 Signal。
+
+Temporal 的 Signal 用于异步通知；Update 适合同步接收需要返回确认的工作流操作；Query 用于读取工作流状态。
+
+[](https://www.google.com/s2/favicons?domain=https://docs.temporal.io&sz=32)
+
+Temporal Documentation
+
+我们选择数据库作为权威控制状态，因此即使 Signal 重复、延迟或发送失败，Controller 下一次协调时仍然能够读取正确的指令。
+
+## 19.5 查询 Task 与 Attempt
+
+```
+GET /v1/agent-runs/{run_id}/tasks
+GET /v1/tasks/{task_id}
+GET /v1/tasks/{task_id}/attempts
+GET /v1/tasks/{task_id}/evidence
+```
+
+建议任务响应中直接包含：
+
+```
+{
+  "task_id": "roof-edit-17",
+  "status": "verifying",
+  "goal_revision": "goal-003",
+  "base_scene_revision": "rev-104",
+  "current_attempt": {
+    "attempt_id": "attempt-002",
+    "lease_epoch": 4,
+    "worker": "geometry-worker-8"
+  },
+  "blocking_dependencies": [],
+  "next_action": "verify_geometry"
+}
+```
+
+不要要求 UI 通过翻阅大量自然语言日志，才能知道一个 Task 为什么卡住。
+
+## 19.6 审批接口
+
+```
+POST /v1/approval-requests/{approval_id}/decision
+Idempotency-Key: approval-decision-001
+```
+
+```
+{
+  "decision": "approve",
+  "expected_candidate_revision": "candidate-105",
+  "comment": "Roof proportions look correct"
+}
+```
+
+Approval 不应只是一个布尔字段。
+
+```
+CREATE TABLE approval_requests (
+    approval_id UUID PRIMARY KEY,
+
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+    task_id UUID REFERENCES tasks(task_id),
+
+    action_type TEXT NOT NULL,
+    candidate_revision UUID,
+
+    required_role TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (
+        status IN (
+            'pending', 'approved', 'rejected',
+            'expired', 'revoked'
+        )
+    ),
+
+    requested_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    decided_at TIMESTAMPTZ,
+
+    decided_by TEXT,
+    decision_reason TEXT
+);
+```
+
+审批必须绑定具体候选内容、权限和有效期。
+
+用户批准 Revision 105 的某个操作，不应该被解释为以后所有类似操作都已经授权。
+
+## 19.7 实时事件订阅
+
+```
+GET /v1/agent-runs/{run_id}/events
+Accept: text/event-stream
+```
+
+事件示例：
+
+```
+id: 388
+event: task.accepted
+data: {"task_id":"task-18","revision":"rev-105"}
+
+id: 389
+event: plan.updated
+data: {"plan_revision":"plan-009"}
+
+id: 390
+event: approval.requested
+data: {"approval_id":"approval-21"}
+```
+
+建议事件有单调递增的序列号，客户端可以用 `Last-Event-ID` 恢复订阅。
+
+权威事件先保存：
+
+```
+CREATE TABLE runtime_events (
+    event_seq BIGSERIAL PRIMARY KEY,
+    event_id UUID NOT NULL UNIQUE,
+
+    run_id UUID NOT NULL REFERENCES agent_runs(run_id),
+
+    event_type TEXT NOT NULL,
+    payload_blob_hash TEXT NOT NULL,
+
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE runtime_outbox (
+    event_id UUID PRIMARY KEY,
+    aggregate_id UUID NOT NULL,
+
+    destination TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    payload_blob_hash TEXT NOT NULL,
+
+    delivered_at TIMESTAMPTZ,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+客户端接到事件后，可以进一步查询具体的 Scene Diff、验证报告或 Geometry Artifact。
+
+需要注意 PostgreSQL Sequence 在事务回滚时可能出现空号，序列号也不能独自承担严格的跨事务提交顺序保证。正式事件流应使用明确的持久化消费游标和排序协议，不能假定 `BIGSERIAL` 就意味着绝对提交顺序。
+
+## 20. Agent Tool API
+
+内部 Agent 可以通过 MCP 或专用 RPC 使用以下最小工具集。
+
+| Tool | 输入 | 输出 |
+| --- | --- | --- |
+| `scene.inspect` | Revision、NodeId 或 Query | Scene Context |
+| `feature.inspect` | FeatureId | Feature Definition、依赖与参数 |
+| `feature.compile` | Feature Plan | 类型检查结果和执行计划 |
+| `modeling.prepare` | Modeling IR、Base Revision | 候选事务与验证计划 |
+| `geometry.evaluate` | Evaluation Plan | Artifact、诊断、成本 |
+| `geometry.validate` | Candidate Revision、Criteria | Evidence References |
+| `revision.diff` | Base Revision、Candidate Revision | 结构化差异 |
+| `task.report_blocker` | TaskId、错误证据 | Blocked 状态提议 |
+| `task.propose_replan` | RunId、Plan Diff | 待批准的新计划 |
+
+不建议给 Agent 暴露通用的 `task.mark_completed` 或 `branch.force_push` 工具。
+
+这些动作只能由具有明确业务权限的验收和发布组件完成。
+
+另外，`geometry.evaluate` 创建的计算任务必须遵守 Task Scope，不能因为 Agent 拿到了底层计算工具，就可以绕开预算或执行任意远程代码。
+
+# 第八部分：进展、停滞与终止条件
+
+## 21. 如何证明 Agent 正在取得进展？
+
+我建议把进展拆为两部分：
+
+工程进展：当前 GoalRevision 下，有多少验收条件已经获得有效证据。
+
+执行效率：为了取得这些结果，消耗了多少成本、重试和计算资源。
+
+可以定义一个受硬约束限制的进展分数：
+
+\[
+P(R,G)=
+\frac{\sum_i w_i\,\mathbf{1}[\operatorname{validPass}(c_i,R,G)]}
+{\sum_i w_i}
+\]
+
+其中：
+
+- \(R\)：当前工程 Revision。
+- \(G\)：当前目标 Revision。
+- \(c_i\)：一个验收条件。
+- \(w_i\)：该条件在目标中的权重。
+- `validPass`：存在适用于当前工程状态的有效通过证据。
+
+这个分数只用于监测，不代表所有目标可以用单个数字完全概括。
+
+硬约束必须单独检查。例如输出格式错误，即使其他指标全部通过，也不能宣布正式交付完成。
+
+## 21.1 停滞检测
+
+建议记录每个执行窗口的：
+
+```
+verified_goal_delta
+new_accepted_evidence_count
+repeated_error_count
+failed_attempt_count
+estimated_remaining_cost
+actual_spend
+plan_change_count
+```
+
+可以定义停滞策略：
+
+```
+IF consecutive_failures >= threshold
+AND verified_goal_delta == 0
+THEN
+    inspect_failure_clusters
+    propose_alternative_strategy
+```
+
+但停滞检测不应简单地把长时间计算视为没有进展。
+
+例如，一个复杂的 B-Rep 求解器运行了 30 分钟，只要具有可靠心跳、没有超出时间预算，仍然可能是合理的工作。
+
+### 21.2 什么时候应该自动重规划？
+
+我建议初期采用下列触发条件：
+
+- 同一 Feature 操作出现重复的确定性错误。
+- 一个 Task 连续达到有限失败次数。
+- 新 GoalRevision 使当前计划部分失效。
+- 实际计算成本持续超出估计。
+- 关键依赖长时间无法满足。
+- Verifier 报告当前建模方法无法满足硬约束。
+
+重规划后必须创建新的 PlanRevision，并保存对旧计划的取代关系。
+
+### 21.3 什么时候需要人类介入？
+
+至少包括：
+
+- 目标之间出现无法自动消解的冲突。
+- 语义几何引用存在无法唯一确定的歧义。
+- Agent 需要扩大预算。
+- Agent 需要改变用户明确要求保留的设计结构。
+- 高风险发布操作没有足够权限。
+- 所有被允许的修复策略均失败。
+
+Human-in-the-loop 是明确的状态与审批流程，不应只是 LLM 在日志里写一句“建议问用户”。
+
+## 22. 正式完成条件
+
+我建议严格定义：
+
+```
+Run is Completed
+IF
+    all required goals have valid acceptance
+AND all hard constraints pass
+AND required deliverables are materialized
+AND final export validation passes
+AND no required publication remains pending
+AND all required human approvals are satisfied
+```
+
+另外需要区分终止原因：
+
+| 终止状态 | 意义 |
+| --- | --- |
+| Completed | 按当前目标和验收政策完成 |
+| Failed | 存在无法自动恢复的失败 |
+| Cancelled | 被合法取消 |
+| WaitingHuman | 尚未终止，等待人工操作 |
+| Paused | 尚未终止，等待恢复 |
+| BudgetExhausted | 可以作为暂停/阻塞原因或失败原因，按策略决定 |
+
+不能在达到最大工具调用次数时直接返回 Completed。
+
+达到预算或者重试上限，只能说明当前执行策略不能继续，和完成目标是两回事。
+
+# 第九部分：恢复协调器与故障注入
+
+## 23. Recovery Controller 如何发现遗留任务？
+
+长期运行的系统不可能只依赖成功执行的 Workflow 自己清理状态。必须有独立的恢复协调过程。
+
+它定期检查：
+
+```
+1. 已经失效的 Task Lease
+2. 没有运行中 Workflow 的非终态 AgentRun
+3. 已经完成但未确认的外部 Geometry Job
+4. 已经生成却尚未发布的 Candidate Revision
+5. 数据库已提交但尚未送达的 Outbox Event
+6. 没有有效等待原因、长期停滞的 Task
+```
+
+对已过期租约：
+
+```
+Read Task
+    ↓
+Verify Lease Expired
+    ↓
+Inspect Last Attempt
+    ↓
+Has Valid Candidate?
+    ├── Yes → Reconcile Candidate
+    └── No  → Determine Retry
+                  ↓
+             Return to Ready
+                  ↓
+             New Lease Epoch
+```
+
+这里要避免一个问题：旧 Worker 虽然失去任务租约，但其计算结果仍然可能是合法的缓存产物。
+
+因此可以保留 Artifact；只是旧 Worker 不能再直接发布它。
+
+### 23.1 故障注入测试矩阵
+
+| 故障 | 正确行为 |
+| --- | --- |
+| LLM 调用中断 | 恢复或重试当前推理步骤，不重复有效工程提交 |
+| Geometry Worker 崩溃 | 查询稳定 Job ID，恢复或重新计算 |
+| Verifier 崩溃 | 保留候选结果，重新验证 |
+| 数据库事务提交前崩溃 | 无部分发布 |
+| 数据库提交成功后连接断开 | 幂等重试返回原发布结果 |
+| Temporal Worker 重新部署 | 根据 Workflow History 恢复 |
+| Outbox 消息重复 | 消费端去重 |
+| 用户取消时 GPU 尚在计算 | 撤销发布权，尽力取消计算 |
+| 用户更改 Goal 后旧结果返回 | 拒绝过期结果或重新评估适用性 |
+| 多 Agent 同时发布同一分支 | 通过 Branch CAS 和依赖检查处理冲突 |
+
+对每项测试，必须同时检查数据库、工程 Revision、Artifact 引用、预算和任务状态，而不能只检查 API 是否返回成功。
+
+# 第十部分：工程实施与首个交付
+
+## 24. Rust 与 Python 的职责边界
+
+建议保持：
+
+```
+Rust
+ ├── Scene Kernel
+ ├── Modeling IR Validation
+ ├── Feature Compilation Core
+ ├── Geometry Artifact Management
+ ├── Revision Transactions
+ └── Publication Coordinator
+
+Python
+ ├── Temporal Workflows
+ ├── Agent Planner / Executor
+ ├── Context Compiler
+ ├── LLM Provider Adapters
+ └── Geometry Worker Adapters
+
+PostgreSQL
+ ├── Runtime Metadata
+ ├── Task Leases / Evidence
+ ├── Budget / Approvals
+ └── Scene Revision Metadata
+
+Object Storage
+ ├── Geometry Artifacts
+ ├── Plans / Contexts
+ ├── Verification Reports
+ └── Checkpoints
+```
+
+Python 负责灵活的 Agent 推理与执行编排，Rust 负责需要严格类型、性能和一致性保证的工程操作。
+
+我建议第一版先采用单个部署单元承载 Rust Scene Kernel 与 Publication Coordinator，确保最终提交共享一个 PostgreSQL 事务边界。未来拆分服务时，再明确跨服务发布协议。
+
+## 25. 最小可用长程实验
+
+首个实际实验不必建造完整城堡。
+
+建议使用一个可参数化的场景：
+
+三座建筑、每座五个可编辑部件，由两个 Agent 并发完成。
+
+验收条件如下：
+
+Runtime P0 验收清单
+
+- [ ]  
+    
+    能创建 Run、Goal、Plan 和 Task DAG
+    
+- [ ]  
+    
+    能并发领取任务，租约过期后旧 Worker 无权提交
+    
+- [ ]  
+    
+    Agent 能生成 Modeling IR 并调用真实 Geometry Kernel
+    
+- [ ]  
+    
+    Verifier 能产生绑定工程版本的 Evidence
+    
+- [ ]  
+    
+    同一 Attempt 重试不会重复发布工程修改
+    
+- [ ]  
+    
+    终止并重新启动 Temporal Worker 后可以继续
+    
+- [ ]  
+    
+    用户修改目标后相关任务被重规划
+    
+- [ ]  
+    
+    暂停与恢复不会丢失已接受成果
+    
+- [ ]  
+    
+    完成条件由真实验收证据决定
+    
+- [ ]  
+    
+    可以导出并重新加载最终 3D 工程
+    
+
+0 / 10 项满足
+
+复制验收清单
+
+### 建议的实现顺序
+
+| 阶段 | 工作 | 验收 |
+| --- | --- | --- |
+| P0-A | PostgreSQL 迁移、Task Claim、租约和 Fencing | 并发领取、过期重试正确 |
+| P0-B | Candidate Revision + 原子 Publish | 故障不会造成重复或部分提交 |
+| P0-C | Temporal Workflow + Activity | 长程执行、崩溃恢复 |
+| P0-D | Agent Context + Feature Compiler | 能连续执行多轮真实建模 |
+| P0-E | Verifier + Evidence Ledger | 能正确判断任务验收 |
+| P0-F | Goal Diff + Replanning | 用户修改需求后继续推进 |
+| P0-G | REST API + SSE + UI | 用户能够管理和观察 Agent |
+
+## 26. 已整理的参考工程骨架
+
+我已经把初始数据库表、Temporal 工作流和 API 规范组织成了一个参考工程。
+
+RFC-005 Runtime Reference
+
+PostgreSQL · Temporal Python SDK · OpenAPI 3.1
+
+001_init.sql
+
+数据库迁移草案
+
+workflow.py
+
+主/子工作流骨架
+
+openapi.yaml
+
+运行时 API 草案
+
+README.md
+
+实现边界与开发步骤
+
+下载 RFC-005 参考工程 ZIP
+
+已检查 Python 语法和 OpenAPI YAML 解析。尚未执行 PostgreSQL 迁移、连接 Temporal 服务或运行端到端测试；这是代码骨架，不是已部署系统。
+
+# RFC-005 最终架构决议
+
+| 编号 | 决议 |
+| --- | --- |
+| ADR-037 | PostgreSQL 为长期 Agent 业务状态的权威存储 |
+| ADR-038 | Temporal 负责持久化编排，不承担工程几何存储 |
+| ADR-039 | Run、Goal、Plan、Task、Attempt 和 Evidence 独立版本化 |
+| ADR-040 | 任务通过数据库租约、递增 Fencing Token 和条件提交控制并发 |
+| ADR-041 | 外部 Activity 采用可恢复、幂等的执行协议 |
+| ADR-042 | Candidate Revision 与正式发布分离 |
+| ADR-043 | 初版发布协调器与工程版本元数据共享 PostgreSQL 事务 |
+| ADR-044 | Context Compiler 从权威状态生成有界的 Agent 上下文 |
+| ADR-045 | 目标修改触发局部失效分析与可审计重规划 |
+| ADR-046 | 验收证据绑定工程版本、依赖范围和验证器版本 |
+| ADR-047 | 任务进展和完成由有效 Evidence 判断 |
+| ADR-048 | 资源预算、审批、取消和停止条件由运行时执行 |
+
+## 最后，我认为还需要明确一个研究重心
+
+到 RFC-005，我们已经具备了一个能够可靠运行很久的 Agent 架构。
+
+但是，可靠运行很久与真正具备长程自主建模能力之间，还有一个关键距离：
+
+一个 Agent 可能在三天内稳定执行一千次工具调用，却仍然没有创造出一件优秀的三维作品。
+
+因此，接下来真正值得投入的研究应当集中于 Long-Horizon Modeling Intelligence：
+
+Agent 如何判断现在的工程最值得改进哪里？如何发现之前的设计决策正在阻碍后续工作？如何根据几何验证、视觉评审和失败历史形成更好的下一步计划？如何在数百轮操作中持续提升最终模型质量？
+
+我建议将系统研发和智能研究分为两条并行主线：
+
+系统主线：完成 RFC-001 至 RFC-005 的正确性、持久化和并发基础设施。
+
+智能主线：研究长期规划、进度评估、主动发现错误、失败恢复和设计自我改进。
+
+这两条主线的交汇点，就是你真正想要的产品：一个可以长期独立完成复杂三维建模工作的开源 Agent 软件。
