@@ -1,12 +1,16 @@
 //! Pure typed engineering state, validation and deterministic feature compilation.
 
 mod compiler;
+mod feature_plan;
+mod mechanical;
 mod model;
+mod sketch;
 mod transaction;
 pub mod u64_string;
 mod validation;
 
 pub use model::*;
+pub use sketch::*;
 pub use transaction::{apply_transaction, dirty_features};
 
 use serde::{Deserialize, Serialize};

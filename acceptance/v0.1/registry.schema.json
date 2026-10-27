@@ -1,0 +1,623 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:deep3d:acceptance-registry:1",
+  "title": "V0.1 acceptance registry, draft or frozen",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_version",
+    "contract",
+    "registration",
+    "thresholds",
+    "cases",
+    "changes",
+    "recovery_scenarios",
+    "invalidation_benchmark",
+    "autonomy_run",
+    "long_horizon",
+    "evidence_policy"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "deep3d.acceptance-registry/1"
+    },
+    "registry_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "baseline_date",
+        "acceptance_date",
+        "thresholds_are_targets"
+      ],
+      "properties": {
+        "id": {
+          "const": "agent-native-3d-target-state/1"
+        },
+        "baseline_date": {
+          "const": "2026-10-27"
+        },
+        "acceptance_date": {
+          "const": "2026-11-01"
+        },
+        "thresholds_are_targets": {
+          "const": true
+        }
+      }
+    },
+    "registration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "frozen_at",
+        "creates_execution",
+        "contains_measurements"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "draft",
+            "frozen"
+          ]
+        },
+        "frozen_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "creates_execution": {
+          "const": false
+        },
+        "contains_measurements": {
+          "const": false
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "G7"
+      ],
+      "properties": {
+        "G1": {
+          "const": {
+            "registered_cases": 10,
+            "min_full_successes": 8,
+            "all_claimed_completed_entities_geometry_valid": true
+          }
+        },
+        "G2": {
+          "const": {
+            "deliveries_with_scene_parameters_features": 10,
+            "min_successful_agent_free_edit_rebuilds": 8
+          }
+        },
+        "G3": {
+          "const": {
+            "registered_changes": 20,
+            "min_correct_final_states": 18,
+            "affected_dependency_recall": 1,
+            "unrelated_false_positives": 0,
+            "full_recompute_equivalence_required": true
+          }
+        },
+        "G4": {
+          "const": {
+            "feature_nodes": 1000,
+            "p95_propagation_ms_exclusive_maximum": 100,
+            "accuracy": 1,
+            "exclude_geometry_recompute": true,
+            "record_test_machine": true
+          }
+        },
+        "G5": {
+          "const": {
+            "registered_scenarios": 5,
+            "required_recoveries": 5,
+            "duplicate_publications": 0,
+            "unverified_publications": 0
+          }
+        },
+        "G6": {
+          "const": {
+            "minimum_observed_end_to_end_seconds": 7200,
+            "minimum_verified_geometry_change_commits": 10,
+            "minimum_requirement_changes": 1,
+            "human_stepwise_cad_operations": 0
+          }
+        },
+        "G7": {
+          "const": {
+            "evidence_bundle_for_every_success": true,
+            "minimum_clean_environment_reproductions": 8
+          }
+        }
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/case"
+      }
+    },
+    "changes": {
+      "type": "array",
+      "minItems": 20,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/change"
+      }
+    },
+    "recovery_scenarios": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/recovery"
+      }
+    },
+    "invalidation_benchmark": {
+      "$ref": "#/$defs/protocol"
+    },
+    "autonomy_run": {
+      "$ref": "#/$defs/protocol"
+    },
+    "long_horizon": {
+      "$ref": "#/$defs/protocol"
+    },
+    "evidence_policy": {
+      "type": "object",
+      "minProperties": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "registration": {
+            "properties": {
+              "state": {
+                "const": "draft"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "registration": {
+            "properties": {
+              "frozen_at": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "registration": {
+            "properties": {
+              "frozen_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "changes": {
+            "items": {
+              "properties": {
+                "dependency_oracle": {
+                  "properties": {
+                    "binding_state": {"const": "bound_to_independent_seed"},
+                    "oracle_asset_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+                  }
+                }
+              }
+            }
+          },
+          "invalidation_benchmark": {
+            "properties": {
+              "graph": {
+                "required": ["graph_asset_sha256", "independent_oracle_sha256"],
+                "properties": {
+                  "graph_asset_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"},
+                  "independent_oracle_sha256": {"type": "string", "pattern": "^sha256:[a-f0-9]{64}$"}
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "criterion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "scope",
+        "method_id",
+        "expected",
+        "required",
+        "stage"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "method_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9._-]+@[1-9][0-9]*$"
+        },
+        "expected": {
+          "type": "object",
+          "minProperties": 1
+        },
+        "required": {
+          "const": true
+        },
+        "stage": {
+          "enum": [
+            "native",
+            "step",
+            "both",
+            "source",
+            "integration"
+          ]
+        }
+      }
+    },
+    "case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "intent",
+        "intent_language",
+        "capability_tags",
+        "criteria",
+        "editability_probe",
+        "delivery_requirements",
+        "reference_policy"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^C(0[1-9]|10)$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intent": {
+          "type": "string",
+          "minLength": 1
+        },
+        "intent_language": {
+          "const": "zh-CN"
+        },
+        "capability_tags": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "criteria": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/criterion"
+          }
+        },
+        "editability_probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "parameter",
+            "new_value",
+            "unit",
+            "expected_relation",
+            "agent_allowed"
+          ],
+          "properties": {
+            "parameter": {
+              "type": "string",
+              "minLength": 1
+            },
+            "new_value": {
+              "type": [
+                "number",
+                "integer"
+              ]
+            },
+            "unit": {
+              "enum": [
+                "mm",
+                "rad",
+                "count"
+              ]
+            },
+            "expected_relation": {
+              "type": "string",
+              "minLength": 1
+            },
+            "agent_allowed": {
+              "const": false
+            }
+          }
+        },
+        "delivery_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "reference_policy": {
+          "const": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+        }
+      }
+    },
+    "change": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "seed_case",
+        "seed_asset_id",
+        "entry_mode",
+        "change_request",
+        "category",
+        "expected_outcome",
+        "dependency_oracle",
+        "final_state_oracle"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^M(0[1-9]|1[0-9]|20)$"
+        },
+        "seed_case": {
+          "type": "string",
+          "pattern": "^C(0[1-9]|10)$"
+        },
+        "seed_asset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "entry_mode": {
+          "enum": [
+            "natural_language",
+            "typed_ir"
+          ]
+        },
+        "change_request": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "upstream_parameter",
+            "local_feature",
+            "topology_change",
+            "cross_component",
+            "metadata_only",
+            "invalid_input"
+          ]
+        },
+        "expected_outcome": {
+          "enum": [
+            "verified_new_commit",
+            "reject_preserve_last_verified"
+          ]
+        },
+        "dependency_oracle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "binding_state",
+            "changed_roles",
+            "invalidated_existing_roles",
+            "preserved_roles",
+            "new_roles",
+            "removed_roles",
+            "metadata_changed_roles",
+            "oracle_asset_sha256"
+          ],
+          "properties": {
+            "binding_state": {
+              "enum": ["requires_independent_seed_binding_before_freeze", "bound_to_independent_seed"]
+            },
+            "changed_roles": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "invalidated_existing_roles": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "preserved_roles": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "new_roles": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "removed_roles": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "metadata_changed_roles": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "oracle_asset_sha256": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^sha256:[a-f0-9]{64}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        "final_state_oracle": {
+          "type": "object",
+          "minProperties": 1
+        }
+      }
+    },
+    "recovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "injection_point",
+        "disturbances",
+        "required_observations",
+        "forbidden_outcomes",
+        "seed_requirement",
+        "evidence_requirements"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^R0[1-5]$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "injection_point": {
+          "type": "string",
+          "minLength": 1
+        },
+        "disturbances": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required_observations": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "forbidden_outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "seed_requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_requirements": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "protocol": {
+      "type": "object",
+      "required": [
+        "id",
+        "state",
+        "definition"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "const": "planned_not_started"
+        },
+        "definition": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

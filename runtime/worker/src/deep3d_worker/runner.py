@@ -9,6 +9,7 @@ import re
 import sys
 import threading
 import time
+import unicodedata
 from pathlib import Path, PurePosixPath
 from uuid import UUID, uuid4
 
@@ -20,13 +21,6 @@ from .process import ProcessTree
 
 _KEY = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 _HASH = re.compile(r"^sha256:[a-f0-9]{64}$")
-_PARAMETERS = {
-    "outer_diameter_mm",
-    "thickness_mm",
-    "center_hole_diameter_mm",
-    "bolt_hole_diameter_mm",
-    "bolt_circle_diameter_mm",
-}
 _TRANSIENT_NATIVE = {"PROJECT_BUSY", "IO_ERROR", "PROJECT_IO", "WORKER_TIMEOUT"}
 _AUTHORITY_ERRORS = {
     "STALE_EXECUTION_LEASE",
@@ -45,9 +39,65 @@ def _uuid(value: object) -> bool:
         return False
 
 
+def _parameter_name(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value.strip())
+        and len(value) <= 256
+        and not any(unicodedata.category(c) == "Cc" for c in value)
+    )
+
+
+def _acceptance(value: object) -> None:
+    if not isinstance(value, dict) or not {"schema_version", "nodes"}.issubset(value):
+        raise ValueError("Invalid mechanical acceptance")
+    if set(value) - {"schema_version", "nodes", "assembly", "max_interference_volume_mm3"}:
+        raise ValueError("Unknown mechanical acceptance member")
+    if value["schema_version"] != "deep3d.mechanical-acceptance/1":
+        raise ValueError("Unsupported mechanical acceptance")
+    nodes = value["nodes"]
+    if not isinstance(nodes, dict) or not 1 <= len(nodes) <= 64 or not all(_uuid(k) for k in nodes):
+        raise ValueError("Invalid mechanical acceptance nodes")
+    targets = list(nodes.values())
+    if value.get("assembly") is not None:
+        targets.append(value["assembly"])
+    for target in targets:
+        if (
+            not isinstance(target, dict)
+            or "solid_count" not in target
+            or set(target) - {"solid_count", "volume_mm3", "bounds_mm"}
+            or type(target["solid_count"]) is not int
+            or not 1 <= target["solid_count"] <= 4096
+            or target.get("volume_mm3") is None
+            and target.get("bounds_mm") is None
+        ):
+            raise ValueError("Invalid independent node target")
+        volume = target.get("volume_mm3")
+        if volume is not None and (
+            type(volume) not in (int, float) or not math.isfinite(volume) or volume <= 0
+        ):
+            raise ValueError("Invalid expected volume")
+        bounds = target.get("bounds_mm")
+        if bounds is not None and (
+            not isinstance(bounds, list)
+            or len(bounds) != 6
+            or any(
+                type(v) not in (int, float) or not math.isfinite(v) or abs(v) > 10000
+                for v in bounds
+            )
+            or any(bounds[i] >= bounds[i + 3] for i in range(3))
+        ):
+            raise ValueError("Invalid expected bounds")
+    limit = value.get("max_interference_volume_mm3")
+    if limit is not None and (
+        type(limit) not in (int, float) or not math.isfinite(limit) or not 0 <= limit <= 1e12
+    ):
+        raise ValueError("Invalid assembly interference limit")
+
+
 def validate_lease(lease: object) -> dict:
     try:
-        if not isinstance(lease, dict) or set(lease) != {
+        if not isinstance(lease, dict) or set(lease) - {"acceptance"} != {
             "token",
             "source",
             "changes_mm",
@@ -90,11 +140,13 @@ def validate_lease(lease: object) -> dict:
             raise ValueError
         if (
             not isinstance(changes, dict)
-            or not changes
-            or not set(changes).issubset(_PARAMETERS)
+            or not 1 <= len(changes) <= 64
+            or not all(_parameter_name(name) for name in changes)
             or any(type(v) not in (int, float) or not math.isfinite(v) for v in changes.values())
         ):
             raise ValueError
+        if lease.get("acceptance") is not None:
+            _acceptance(lease["acceptance"])
         if (
             any(
                 type(lease[k]) is not int or lease[k] <= 0
@@ -179,6 +231,7 @@ class LeaseKeeper:
                     response["token"] != self.lease["token"]
                     or response["source"] != self.lease["source"]
                     or response["changes_mm"] != self.lease["changes_mm"]
+                    or response.get("acceptance") != self.lease.get("acceptance")
                     or response["deadline_unix_ms"] != self.lease["deadline_unix_ms"]
                 ):
                     raise WorkerError("RUNTIME_PROTOCOL")
@@ -256,6 +309,8 @@ class TaskRunner:
         immutable = {
             key: lease[key] for key in ("token", "source", "changes_mm", "deadline_unix_ms")
         }
+        if lease.get("acceptance") is not None:
+            immutable["acceptance"] = lease["acceptance"]
         journal = directory / "lease.json"
         if journal.exists() and read_json(journal) != immutable:
             raise WorkerError("ATTEMPT_WORKSPACE_CONFLICT")
@@ -301,6 +356,10 @@ class TaskRunner:
                             "value": {"kind": "length_mm", "value": value},
                         }
                     )
+                if lease.get("acceptance") is not None:
+                    if snapshot["project"].get("flange") is not None:
+                        raise WorkerError("TASK_ACCEPTANCE_INVALID")
+                    commands.append({"op": "acceptance.set", "acceptance": lease["acceptance"]})
                 transaction = {
                     "schema_version": "deep3d.transaction/1",
                     "id": token["attempt_id"],

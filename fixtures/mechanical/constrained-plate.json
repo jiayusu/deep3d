@@ -1,0 +1,386 @@
+{
+  "schema_version": "deep3d.spec/1",
+  "project_id": "fc7620f4-61e4-5cf4-901a-d14b2c7371c6",
+  "name": "Constrained drilled plate",
+  "root_node_id": "946a71be-3d12-525d-a3e8-892aabb7dd0a",
+  "nodes": {
+    "946a71be-3d12-525d-a3e8-892aabb7dd0a": {
+      "id": "946a71be-3d12-525d-a3e8-892aabb7dd0a",
+      "name": "world",
+      "parent": null,
+      "feature": null
+    },
+    "c91f3856-7f1d-5780-b315-6b3754317173": {
+      "id": "c91f3856-7f1d-5780-b315-6b3754317173",
+      "name": "Plate",
+      "parent": "946a71be-3d12-525d-a3e8-892aabb7dd0a",
+      "feature": "dbcb7e9d-c5fa-5254-a1a4-55e69960ba61"
+    }
+  },
+  "parameters": {
+    "ce2d5ac4-2c06-59db-a2e2-b75c853dac77": {
+      "id": "ce2d5ac4-2c06-59db-a2e2-b75c853dac77",
+      "name": "width_mm",
+      "value": {
+        "kind": "length_mm",
+        "value": 20
+      }
+    },
+    "758b4885-e4b0-59cc-b9a5-db5255d72ec0": {
+      "id": "758b4885-e4b0-59cc-b9a5-db5255d72ec0",
+      "name": "height_mm",
+      "value": {
+        "kind": "length_mm",
+        "value": 12
+      }
+    },
+    "d4bddb43-5f88-5fa8-988c-d8fd84503adb": {
+      "id": "d4bddb43-5f88-5fa8-988c-d8fd84503adb",
+      "name": "thickness_mm",
+      "value": {
+        "kind": "length_mm",
+        "value": 5
+      }
+    }
+  },
+  "features": {
+    "48d0e49d-4914-536f-bfe4-6e22e0b6d1eb": {
+      "id": "48d0e49d-4914-536f-bfe4-6e22e0b6d1eb",
+      "name": "PlateSketch",
+      "operation": {
+        "op": "profile.sketch@1",
+        "sketch": {
+          "points": {
+            "p0": [
+              {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 0
+                }
+              },
+              {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 0
+                }
+              }
+            ],
+            "p1": [
+              {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 20
+                }
+              },
+              {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 0
+                }
+              }
+            ],
+            "p2": [
+              {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 20
+                }
+              },
+              {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 12
+                }
+              }
+            ],
+            "p3": [
+              {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 0
+                }
+              },
+              {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 12
+                }
+              }
+            ]
+          },
+          "lines": {
+            "bottom": [
+              "p0",
+              "p1"
+            ],
+            "right": [
+              "p1",
+              "p2"
+            ],
+            "top": [
+              "p2",
+              "p3"
+            ],
+            "left": [
+              "p3",
+              "p0"
+            ]
+          },
+          "circles": {},
+          "arcs": {},
+          "constraints": [
+            {
+              "id": "anchor",
+              "kind": "fix",
+              "point": "p0",
+              "x": {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 0
+                }
+              },
+              "y": {
+                "kind": "literal",
+                "value": {
+                  "kind": "length_mm",
+                  "value": 0
+                }
+              }
+            },
+            {
+              "id": "bottom_h",
+              "kind": "horizontal",
+              "line": "bottom"
+            },
+            {
+              "id": "top_h",
+              "kind": "horizontal",
+              "line": "top"
+            },
+            {
+              "id": "right_v",
+              "kind": "vertical",
+              "line": "right"
+            },
+            {
+              "id": "left_v",
+              "kind": "vertical",
+              "line": "left"
+            },
+            {
+              "id": "width_dimension",
+              "kind": "distance",
+              "a": "p0",
+              "b": "p1",
+              "value": {
+                "kind": "parameter",
+                "parameter_id": "ce2d5ac4-2c06-59db-a2e2-b75c853dac77",
+                "scale": 1
+              }
+            },
+            {
+              "id": "height_dimension",
+              "kind": "distance",
+              "a": "p1",
+              "b": "p2",
+              "value": {
+                "kind": "parameter",
+                "parameter_id": "758b4885-e4b0-59cc-b9a5-db5255d72ec0",
+                "scale": 1
+              }
+            }
+          ],
+          "loops": [
+            [
+              {
+                "entity": "bottom",
+                "reversed": false
+              },
+              {
+                "entity": "right",
+                "reversed": false
+              },
+              {
+                "entity": "top",
+                "reversed": false
+              },
+              {
+                "entity": "left",
+                "reversed": false
+              }
+            ]
+          ]
+        }
+      }
+    },
+    "ca700412-1e0a-5166-ba66-e401a8a20286": {
+      "id": "ca700412-1e0a-5166-ba66-e401a8a20286",
+      "name": "PlateExtrusion",
+      "operation": {
+        "op": "solid.extrude@1",
+        "profile": "48d0e49d-4914-536f-bfe4-6e22e0b6d1eb",
+        "distance": {
+          "kind": "parameter",
+          "parameter_id": "d4bddb43-5f88-5fa8-988c-d8fd84503adb",
+          "scale": 1
+        }
+      }
+    },
+    "e2d950d9-80d8-5172-9b24-be00ba8d3964": {
+      "id": "e2d950d9-80d8-5172-9b24-be00ba8d3964",
+      "name": "OuterVerticalFillets",
+      "operation": {
+        "op": "solid.fillet@1",
+        "shape": "ca700412-1e0a-5166-ba66-e401a8a20286",
+        "radius": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 1
+          }
+        },
+        "selector": {
+          "kind": "line_parallel",
+          "axis": [
+            0,
+            0,
+            1
+          ],
+          "expected_count": 4
+        }
+      }
+    },
+    "4491a3d3-710d-5581-9ae4-aeb0c8ba6f36": {
+      "id": "4491a3d3-710d-5581-9ae4-aeb0c8ba6f36",
+      "name": "TwoThroughHoles",
+      "operation": {
+        "op": "solid.hole@1",
+        "base": "e2d950d9-80d8-5172-9b24-be00ba8d3964",
+        "diameter": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 4
+          }
+        },
+        "depth": {
+          "kind": "parameter",
+          "parameter_id": "d4bddb43-5f88-5fa8-988c-d8fd84503adb",
+          "scale": 1
+        },
+        "centers": [
+          [
+            {
+              "kind": "parameter",
+              "parameter_id": "ce2d5ac4-2c06-59db-a2e2-b75c853dac77",
+              "scale": 0.25
+            },
+            {
+              "kind": "parameter",
+              "parameter_id": "758b4885-e4b0-59cc-b9a5-db5255d72ec0",
+              "scale": 0.5
+            }
+          ],
+          [
+            {
+              "kind": "parameter",
+              "parameter_id": "ce2d5ac4-2c06-59db-a2e2-b75c853dac77",
+              "scale": 0.75
+            },
+            {
+              "kind": "parameter",
+              "parameter_id": "758b4885-e4b0-59cc-b9a5-db5255d72ec0",
+              "scale": 0.5
+            }
+          ]
+        ],
+        "start_z": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 0
+          }
+        }
+      }
+    },
+    "dbcb7e9d-c5fa-5254-a1a4-55e69960ba61": {
+      "id": "dbcb7e9d-c5fa-5254-a1a4-55e69960ba61",
+      "name": "HoleMouthChamfers",
+      "operation": {
+        "op": "solid.chamfer@1",
+        "shape": "4491a3d3-710d-5581-9ae4-aeb0c8ba6f36",
+        "distance": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 0.5
+          }
+        },
+        "selector": {
+          "kind": "circle",
+          "radius": {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 2
+            }
+          },
+          "axis": "z",
+          "coordinate": {
+            "kind": "parameter",
+            "parameter_id": "d4bddb43-5f88-5fa8-988c-d8fd84503adb",
+            "scale": 1
+          },
+          "expected_count": 2
+        }
+      }
+    }
+  },
+  "precision": {
+    "schema_version": "deep3d.precision/1",
+    "working_tolerance_mm": 0.00001,
+    "max_subshape_tolerance_mm": 0.001,
+    "critical_dimension_error_mm": 0.001,
+    "step_roundtrip_dimension_error_mm": 0.005,
+    "volume_relative_error": 0.000001,
+    "measurement_error_budget_mm": 0.0001
+  },
+  "acceptance": {
+    "schema_version": "deep3d.mechanical-acceptance/1",
+    "nodes": {
+      "c91f3856-7f1d-5780-b315-6b3754317173": {
+        "solid_count": 1,
+        "volume_mm3": 1066.6408650829683,
+        "bounds_mm": [
+          0,
+          0,
+          0,
+          20,
+          12,
+          5
+        ]
+      }
+    },
+    "assembly": {
+      "solid_count": 1,
+      "volume_mm3": 1066.6408650829683,
+      "bounds_mm": [
+        0,
+        0,
+        0,
+        20,
+        12,
+        5
+      ]
+    }
+  }
+}

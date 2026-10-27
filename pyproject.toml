@@ -4,10 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deep3d-cad"
-version = "0.2.0"
-description = "Deterministic OCCT CAD foundation and analytic flange qualification"
+version = "0.3.0"
+description = "Editable mechanical CAD, constrained sketches and durable engineering tasks"
 requires-python = ">=3.12,<3.13"
-dependencies = ["cadquery-ocp-novtk==8.0.1.0.0"]
+dependencies = [
+    "cadquery-ocp-novtk==8.0.1.0.0",
+    "slvs==3.3",
+]
 
 [project.scripts]
 deep3d-cad = "deep3d_cad.cli:main"

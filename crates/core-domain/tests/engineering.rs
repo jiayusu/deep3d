@@ -38,7 +38,7 @@ fn compile_is_typed_stable_and_contains_real_feature_dependencies() {
         canonical_bytes(&project.compile(revision).unwrap()).unwrap()
     );
     assert_eq!(
-        plan.acceptance.expected_volume_mm3(),
+        plan.acceptance.as_flange().unwrap().expected_volume_mm3(),
         26532.0 * std::f64::consts::PI
     );
 }

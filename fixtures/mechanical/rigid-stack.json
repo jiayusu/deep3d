@@ -1,0 +1,483 @@
+{
+  "schema_version": "deep3d.spec/1",
+  "project_id": "3a92444a-852b-54a0-8a1a-a5b56548e613",
+  "name": "Rigid plate spacer stack",
+  "root_node_id": "074cfb08-f8df-5a9c-a873-c046c173b72d",
+  "nodes": {
+    "074cfb08-f8df-5a9c-a873-c046c173b72d": {
+      "id": "074cfb08-f8df-5a9c-a873-c046c173b72d",
+      "name": "world",
+      "parent": null,
+      "feature": null
+    },
+    "f077a973-00f1-5b76-941b-7ae72cc92959": {
+      "id": "f077a973-00f1-5b76-941b-7ae72cc92959",
+      "name": "Plate and spacer assembly",
+      "parent": "074cfb08-f8df-5a9c-a873-c046c173b72d",
+      "feature": null
+    },
+    "0f2ba937-0c45-5b0c-80b3-4084ab96b1d3": {
+      "id": "0f2ba937-0c45-5b0c-80b3-4084ab96b1d3",
+      "name": "Bottom plate",
+      "parent": "f077a973-00f1-5b76-941b-7ae72cc92959",
+      "feature": "32d515d8-1903-50f6-93f3-272776963543"
+    },
+    "b9153d5f-a98e-5593-ab6f-19dc8d9059ad": {
+      "id": "b9153d5f-a98e-5593-ab6f-19dc8d9059ad",
+      "name": "Top plate",
+      "parent": "f077a973-00f1-5b76-941b-7ae72cc92959",
+      "feature": "bfeaeba0-8b61-53ac-9213-9d170702fcec"
+    },
+    "b8719b0d-2ab7-5a2f-9693-f82676f2b7db": {
+      "id": "b8719b0d-2ab7-5a2f-9693-f82676f2b7db",
+      "name": "Spacer 1",
+      "parent": "f077a973-00f1-5b76-941b-7ae72cc92959",
+      "feature": "182acf06-04c1-548f-b2a4-f294b65157ac"
+    },
+    "39f09869-0234-5144-8bb7-fb622e5d71ab": {
+      "id": "39f09869-0234-5144-8bb7-fb622e5d71ab",
+      "name": "Spacer 2",
+      "parent": "f077a973-00f1-5b76-941b-7ae72cc92959",
+      "feature": "f70ba116-7dcd-58a6-9cc0-74c8e739ad95"
+    },
+    "7a9dd968-71fe-500c-8117-646bafcb9c23": {
+      "id": "7a9dd968-71fe-500c-8117-646bafcb9c23",
+      "name": "Spacer 3",
+      "parent": "f077a973-00f1-5b76-941b-7ae72cc92959",
+      "feature": "43ab6b49-7ac8-5316-a72b-d4415365f4a2"
+    },
+    "0bcd2f19-1131-5b1c-bb3d-3a9a6001b89b": {
+      "id": "0bcd2f19-1131-5b1c-bb3d-3a9a6001b89b",
+      "name": "Spacer 4",
+      "parent": "f077a973-00f1-5b76-941b-7ae72cc92959",
+      "feature": "707b7fc0-6cdf-5d7c-8e56-78a893f9ce3c"
+    }
+  },
+  "parameters": {
+    "2652b87b-d653-52eb-89ae-f4851c8e9bea": {
+      "id": "2652b87b-d653-52eb-89ae-f4851c8e9bea",
+      "name": "plate_width_mm",
+      "value": {
+        "kind": "length_mm",
+        "value": 40
+      }
+    },
+    "ed84ff18-7b8b-54b3-a8c3-f86ce9c38e13": {
+      "id": "ed84ff18-7b8b-54b3-a8c3-f86ce9c38e13",
+      "name": "plate_depth_mm",
+      "value": {
+        "kind": "length_mm",
+        "value": 30
+      }
+    },
+    "4f3454d0-ae14-5384-93d9-117b3c3abbc6": {
+      "id": "4f3454d0-ae14-5384-93d9-117b3c3abbc6",
+      "name": "plate_thickness_mm",
+      "value": {
+        "kind": "length_mm",
+        "value": 5
+      }
+    },
+    "7559b733-845c-5fc3-97e9-09763e55c705": {
+      "id": "7559b733-845c-5fc3-97e9-09763e55c705",
+      "name": "spacer_height_mm",
+      "value": {
+        "kind": "length_mm",
+        "value": 10
+      }
+    }
+  },
+  "features": {
+    "a75e22a8-43a6-532d-86ae-678a660798d3": {
+      "id": "a75e22a8-43a6-532d-86ae-678a660798d3",
+      "name": "PlateProfile",
+      "operation": {
+        "op": "profile.rectangle@1",
+        "width": {
+          "kind": "parameter",
+          "parameter_id": "2652b87b-d653-52eb-89ae-f4851c8e9bea",
+          "scale": 1
+        },
+        "height": {
+          "kind": "parameter",
+          "parameter_id": "ed84ff18-7b8b-54b3-a8c3-f86ce9c38e13",
+          "scale": 1
+        },
+        "center_x": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 0
+          }
+        },
+        "center_y": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 0
+          }
+        }
+      }
+    },
+    "32d515d8-1903-50f6-93f3-272776963543": {
+      "id": "32d515d8-1903-50f6-93f3-272776963543",
+      "name": "PlateBody",
+      "operation": {
+        "op": "solid.extrude@1",
+        "profile": "a75e22a8-43a6-532d-86ae-678a660798d3",
+        "distance": {
+          "kind": "parameter",
+          "parameter_id": "4f3454d0-ae14-5384-93d9-117b3c3abbc6",
+          "scale": 1
+        }
+      }
+    },
+    "eb86022a-4033-5571-aef3-b7499c8cede1": {
+      "id": "eb86022a-4033-5571-aef3-b7499c8cede1",
+      "name": "SpacerProfile",
+      "operation": {
+        "op": "profile.circle@1",
+        "radius": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 3
+          }
+        },
+        "center_x": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 0
+          }
+        },
+        "center_y": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 0
+          }
+        }
+      }
+    },
+    "45e42d3a-0b04-5888-bebb-6f9322754585": {
+      "id": "45e42d3a-0b04-5888-bebb-6f9322754585",
+      "name": "SpacerBody",
+      "operation": {
+        "op": "solid.extrude@1",
+        "profile": "eb86022a-4033-5571-aef3-b7499c8cede1",
+        "distance": {
+          "kind": "parameter",
+          "parameter_id": "7559b733-845c-5fc3-97e9-09763e55c705",
+          "scale": 1
+        }
+      }
+    },
+    "bfeaeba0-8b61-53ac-9213-9d170702fcec": {
+      "id": "bfeaeba0-8b61-53ac-9213-9d170702fcec",
+      "name": "TopPlatePlacement",
+      "operation": {
+        "op": "shape.transform@1",
+        "shape": "32d515d8-1903-50f6-93f3-272776963543",
+        "translation": [
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 0
+            }
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 0
+            }
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 15
+            }
+          }
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "angle": {
+          "kind": "literal",
+          "value": {
+            "kind": "angle_rad",
+            "value": 0
+          }
+        }
+      }
+    },
+    "182acf06-04c1-548f-b2a4-f294b65157ac": {
+      "id": "182acf06-04c1-548f-b2a4-f294b65157ac",
+      "name": "SpacerPlacement1",
+      "operation": {
+        "op": "shape.transform@1",
+        "shape": "45e42d3a-0b04-5888-bebb-6f9322754585",
+        "translation": [
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": -12
+            }
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": -8
+            }
+          },
+          {
+            "kind": "parameter",
+            "parameter_id": "4f3454d0-ae14-5384-93d9-117b3c3abbc6",
+            "scale": 1
+          }
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "angle": {
+          "kind": "literal",
+          "value": {
+            "kind": "angle_rad",
+            "value": 0
+          }
+        }
+      }
+    },
+    "f70ba116-7dcd-58a6-9cc0-74c8e739ad95": {
+      "id": "f70ba116-7dcd-58a6-9cc0-74c8e739ad95",
+      "name": "SpacerPlacement2",
+      "operation": {
+        "op": "shape.transform@1",
+        "shape": "45e42d3a-0b04-5888-bebb-6f9322754585",
+        "translation": [
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 12
+            }
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": -8
+            }
+          },
+          {
+            "kind": "parameter",
+            "parameter_id": "4f3454d0-ae14-5384-93d9-117b3c3abbc6",
+            "scale": 1
+          }
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "angle": {
+          "kind": "literal",
+          "value": {
+            "kind": "angle_rad",
+            "value": 0
+          }
+        }
+      }
+    },
+    "43ab6b49-7ac8-5316-a72b-d4415365f4a2": {
+      "id": "43ab6b49-7ac8-5316-a72b-d4415365f4a2",
+      "name": "SpacerPlacement3",
+      "operation": {
+        "op": "shape.transform@1",
+        "shape": "45e42d3a-0b04-5888-bebb-6f9322754585",
+        "translation": [
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 12
+            }
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 8
+            }
+          },
+          {
+            "kind": "parameter",
+            "parameter_id": "4f3454d0-ae14-5384-93d9-117b3c3abbc6",
+            "scale": 1
+          }
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "angle": {
+          "kind": "literal",
+          "value": {
+            "kind": "angle_rad",
+            "value": 0
+          }
+        }
+      }
+    },
+    "707b7fc0-6cdf-5d7c-8e56-78a893f9ce3c": {
+      "id": "707b7fc0-6cdf-5d7c-8e56-78a893f9ce3c",
+      "name": "SpacerPlacement4",
+      "operation": {
+        "op": "shape.transform@1",
+        "shape": "45e42d3a-0b04-5888-bebb-6f9322754585",
+        "translation": [
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": -12
+            }
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 8
+            }
+          },
+          {
+            "kind": "parameter",
+            "parameter_id": "4f3454d0-ae14-5384-93d9-117b3c3abbc6",
+            "scale": 1
+          }
+        ],
+        "axis": [
+          0,
+          0,
+          1
+        ],
+        "angle": {
+          "kind": "literal",
+          "value": {
+            "kind": "angle_rad",
+            "value": 0
+          }
+        }
+      }
+    }
+  },
+  "precision": {
+    "schema_version": "deep3d.precision/1",
+    "working_tolerance_mm": 0.00001,
+    "max_subshape_tolerance_mm": 0.001,
+    "critical_dimension_error_mm": 0.001,
+    "step_roundtrip_dimension_error_mm": 0.005,
+    "volume_relative_error": 0.000001,
+    "measurement_error_budget_mm": 0.0001
+  },
+  "acceptance": {
+    "schema_version": "deep3d.mechanical-acceptance/1",
+    "nodes": {
+      "0f2ba937-0c45-5b0c-80b3-4084ab96b1d3": {
+        "solid_count": 1,
+        "volume_mm3": 6000,
+        "bounds_mm": [
+          -20,
+          -15,
+          0,
+          20,
+          15,
+          5
+        ]
+      },
+      "b9153d5f-a98e-5593-ab6f-19dc8d9059ad": {
+        "solid_count": 1,
+        "volume_mm3": 6000,
+        "bounds_mm": [
+          -20,
+          -15,
+          15,
+          20,
+          15,
+          20
+        ]
+      },
+      "b8719b0d-2ab7-5a2f-9693-f82676f2b7db": {
+        "solid_count": 1,
+        "volume_mm3": 282.7433388230814,
+        "bounds_mm": [
+          -15,
+          -11,
+          5,
+          -9,
+          -5,
+          15
+        ]
+      },
+      "39f09869-0234-5144-8bb7-fb622e5d71ab": {
+        "solid_count": 1,
+        "volume_mm3": 282.7433388230814,
+        "bounds_mm": [
+          9,
+          -11,
+          5,
+          15,
+          -5,
+          15
+        ]
+      },
+      "7a9dd968-71fe-500c-8117-646bafcb9c23": {
+        "solid_count": 1,
+        "volume_mm3": 282.7433388230814,
+        "bounds_mm": [
+          9,
+          5,
+          5,
+          15,
+          11,
+          15
+        ]
+      },
+      "0bcd2f19-1131-5b1c-bb3d-3a9a6001b89b": {
+        "solid_count": 1,
+        "volume_mm3": 282.7433388230814,
+        "bounds_mm": [
+          -15,
+          5,
+          5,
+          -9,
+          11,
+          15
+        ]
+      }
+    },
+    "assembly": {
+      "solid_count": 6,
+      "volume_mm3": 13130.973355292326,
+      "bounds_mm": [
+        -20,
+        -15,
+        0,
+        20,
+        15,
+        20
+      ]
+    },
+    "max_interference_volume_mm3": 0
+  }
+}

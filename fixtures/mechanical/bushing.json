@@ -1,0 +1,144 @@
+{
+  "schema_version": "deep3d.spec/1",
+  "project_id": "8921f0f0-161b-52e5-b93f-0fb342a4a4de",
+  "name": "Revolved bushing",
+  "root_node_id": "92a4dfd5-0178-5241-baec-9d05ce85a219",
+  "nodes": {
+    "92a4dfd5-0178-5241-baec-9d05ce85a219": {
+      "id": "92a4dfd5-0178-5241-baec-9d05ce85a219",
+      "name": "world",
+      "parent": null,
+      "feature": null
+    },
+    "488d8668-8c6b-5579-ac2b-bbb00993e967": {
+      "id": "488d8668-8c6b-5579-ac2b-bbb00993e967",
+      "name": "Bushing",
+      "parent": "92a4dfd5-0178-5241-baec-9d05ce85a219",
+      "feature": "5f641d29-f0a4-5210-8edc-4bdd3bf489de"
+    }
+  },
+  "parameters": {
+    "c0b2f755-7dc0-5383-9ae2-6fc4ddb647cc": {
+      "id": "c0b2f755-7dc0-5383-9ae2-6fc4ddb647cc",
+      "name": "height_mm",
+      "value": {
+        "kind": "length_mm",
+        "value": 20
+      }
+    }
+  },
+  "features": {
+    "52da42e6-7101-55de-8909-b061f3351d0f": {
+      "id": "52da42e6-7101-55de-8909-b061f3351d0f",
+      "name": "BushingSection",
+      "operation": {
+        "op": "profile.rectangle@1",
+        "width": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 5
+          }
+        },
+        "height": {
+          "kind": "parameter",
+          "parameter_id": "c0b2f755-7dc0-5383-9ae2-6fc4ddb647cc",
+          "scale": 1
+        },
+        "center_x": {
+          "kind": "literal",
+          "value": {
+            "kind": "length_mm",
+            "value": 12.5
+          }
+        },
+        "center_y": {
+          "kind": "parameter",
+          "parameter_id": "c0b2f755-7dc0-5383-9ae2-6fc4ddb647cc",
+          "scale": 0.5
+        }
+      }
+    },
+    "5f641d29-f0a4-5210-8edc-4bdd3bf489de": {
+      "id": "5f641d29-f0a4-5210-8edc-4bdd3bf489de",
+      "name": "BushingRevolution",
+      "operation": {
+        "op": "solid.revolve@1",
+        "profile": "52da42e6-7101-55de-8909-b061f3351d0f",
+        "angle": {
+          "kind": "literal",
+          "value": {
+            "kind": "angle_rad",
+            "value": 6.283185307179586
+          }
+        },
+        "axis_origin": [
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 0
+            }
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 0
+            }
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "length_mm",
+              "value": 0
+            }
+          }
+        ],
+        "axis_direction": [
+          0,
+          1,
+          0
+        ]
+      }
+    }
+  },
+  "precision": {
+    "schema_version": "deep3d.precision/1",
+    "working_tolerance_mm": 0.00001,
+    "max_subshape_tolerance_mm": 0.001,
+    "critical_dimension_error_mm": 0.001,
+    "step_roundtrip_dimension_error_mm": 0.005,
+    "volume_relative_error": 0.000001,
+    "measurement_error_budget_mm": 0.0001
+  },
+  "acceptance": {
+    "schema_version": "deep3d.mechanical-acceptance/1",
+    "nodes": {
+      "488d8668-8c6b-5579-ac2b-bbb00993e967": {
+        "solid_count": 1,
+        "volume_mm3": 7853.981633974483,
+        "bounds_mm": [
+          -15,
+          0,
+          -15,
+          15,
+          20,
+          15
+        ]
+      }
+    },
+    "assembly": {
+      "solid_count": 1,
+      "volume_mm3": 7853.981633974483,
+      "bounds_mm": [
+        -15,
+        0,
+        -15,
+        15,
+        20,
+        15
+      ]
+    }
+  }
+}

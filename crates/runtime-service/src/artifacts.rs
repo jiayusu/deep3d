@@ -158,11 +158,26 @@ pub fn verify_result(
     let mut expected = before.project.clone();
     for (name, value) in &task.changes_mm {
         let id = expected.parameter_id(name)?;
-        expected
+        let parameter = expected
             .parameters
             .get_mut(&id)
-            .ok_or_else(|| CoreError::new("PARAMETER_INVALID", "Missing task parameter"))?
-            .value = ScalarValue::LengthMm(*value);
+            .ok_or_else(|| CoreError::new("PARAMETER_INVALID", "Missing task parameter"))?;
+        if !matches!(parameter.value, ScalarValue::LengthMm(_)) {
+            return Err(CoreError::new(
+                "TYPE_MISMATCH",
+                "Runtime changes_mm only edits length parameters",
+            ));
+        }
+        parameter.value = ScalarValue::LengthMm(*value);
+    }
+    if let Some(acceptance) = &task.acceptance {
+        if expected.flange.is_some() {
+            return Err(CoreError::new(
+                "TYPE_MISMATCH",
+                "Legacy flange acceptance follows its parameter binding",
+            ));
+        }
+        expected.acceptance = Some(acceptance.clone());
     }
     expected.validate()?;
     let history = store.history()?;
@@ -190,9 +205,14 @@ pub fn verify_result(
                 "No verified materialization for this exact task revision",
             )
         })?;
+    let step_name = if snapshot.project.flange.is_some() {
+        "flange.step"
+    } else {
+        "model.step"
+    };
     let step = record
         .files
-        .get("flange.step")
+        .get(step_name)
         .ok_or_else(|| CoreError::new("ARTIFACT_MISSING", "Verified STEP is missing"))?;
     let project_id = snapshot.project.project_id;
     let persisted = persist(root, file, &bytes, snapshot.head)?;
@@ -227,15 +247,21 @@ pub fn download(
     }
     let file = temporary(root, &bytes)?;
     let store = ProjectStore::open(file.path())?;
+    let snapshot = store.read_revision(output.source.head.revision_id)?;
     let record = store
         .materializations(output.source.head.revision_id)?
         .into_iter()
         .find(|(digest, _)| digest == &output.materialization)
         .map(|(_, record)| record)
         .ok_or_else(|| CoreError::new("ARTIFACT_CORRUPT", "Accepted materialization is missing"))?;
+    let step_name = if snapshot.project.flange.is_some() {
+        "flange.step"
+    } else {
+        "model.step"
+    };
     let artifact = record
         .files
-        .get("flange.step")
+        .get(step_name)
         .ok_or_else(|| CoreError::new("ARTIFACT_CORRUPT", "Accepted STEP is missing"))?;
     if artifact.sha256 != output.step_sha256 {
         return Err(CoreError::new(

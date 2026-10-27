@@ -286,9 +286,14 @@ fn validate_materialization(state: &State, record: &Materialization) -> Result<B
             "Geometry build was not successful",
         ));
     }
+    let mechanical = matches!(plan.acceptance, core_domain::Acceptance::Mechanical(_));
     for (name, stage) in [("verify-brep.json", "native"), ("verify-step.json", "step")] {
         let report = json_artifact(state, record, name)?;
-        let geometry = if stage == "native" {
+        let geometry = if mechanical && stage == "native" {
+            "model.brep"
+        } else if mechanical {
+            "model.step"
+        } else if stage == "native" {
             "flange.brep"
         } else {
             "flange.step"
@@ -308,11 +313,21 @@ fn validate_materialization(state: &State, record: &Materialization) -> Result<B
                 format!("Missing checks in {name}"),
             )
         })?;
-        if report["schema_version"] != "deep3d.flange-verification/1"
+        let schema = if mechanical {
+            "deep3d.mechanical-verification/1"
+        } else {
+            "deep3d.flange-verification/1"
+        };
+        let validator_id = if mechanical {
+            "deep3d.mechanical@1"
+        } else {
+            "deep3d.analytic-flange@1"
+        };
+        if report["schema_version"] != schema
             || report["status"] != "pass"
             || report["stage"] != stage
             || report["input_artifact_sha256"] != artifact.sha256
-            || report["validator_id"] != "deep3d.analytic-flange@1"
+            || report["validator_id"] != validator_id
             || report["validator_source_sha256"] != *validator
             || !same_json(&report["expected_spec"], &plan_value["acceptance"])?
             || !same_json(&report["precision_profile"], &plan_value["precision"])?
@@ -323,6 +338,24 @@ fn validate_materialization(state: &State, record: &Materialization) -> Result<B
                 "MATERIALIZATION_INVALID",
                 format!("Unbound or failed evidence in {name}"),
             ));
+        }
+        if mechanical && stage == "native" {
+            let assembly = record.files.get("assembly.json").ok_or_else(|| {
+                error(
+                    "MATERIALIZATION_INVALID",
+                    "Missing checked assembly metadata",
+                )
+            })?;
+            let expected = serde_json::to_value(&record.node_outputs)
+                .map_err(|cause| error("MATERIALIZATION_INVALID", cause.to_string()))?;
+            if !same_json(&report["input_node_artifact_sha256"], &expected)?
+                || report["input_assembly_artifact_sha256"] != assembly.sha256
+            {
+                return Err(error(
+                    "MATERIALIZATION_INVALID",
+                    "Verification is not bound to node artifacts and assembly metadata",
+                ));
+            }
         }
     }
     let expected_features: BTreeSet<Uuid> = current.project.features.keys().copied().collect();
@@ -364,11 +397,39 @@ fn validate_materialization(state: &State, record: &Materialization) -> Result<B
                 })
         })
         .collect::<Result<_>>()?;
-    if record.node_outputs != expected_node_outputs || record.node_outputs.len() != 1 {
+    if record.node_outputs != expected_node_outputs
+        || (!mechanical && record.node_outputs.len() != 1)
+    {
         return Err(error(
             "MATERIALIZATION_INVALID",
             "Scene geometry bindings do not match plan",
         ));
+    }
+    if mechanical {
+        for (node, hash) in &record.node_outputs {
+            if record
+                .files
+                .get(&format!("nodes/{node}.brep"))
+                .map(|file| &file.sha256)
+                != Some(hash)
+            {
+                return Err(error("MATERIALIZATION_INVALID", "Missing bound node BREP"));
+            }
+        }
+        let assembly = json_artifact(state, record, "assembly.json")?;
+        if assembly["schema_version"] != "deep3d.rigid-assembly/1"
+            || assembly["project_id"] != plan.project_id.to_string()
+            || assembly["revision_id"] != plan.revision_id.to_string()
+            || !same_json(&assembly["scene"], &plan_value["scene"])?
+            || !record.files.contains_key("model.brep")
+            || !record.files.contains_key("model.step")
+        {
+            return Err(error(
+                "MATERIALIZATION_INVALID",
+                "Missing or unbound assembly artifacts",
+            ));
+        }
+        return Ok(reachable);
     }
     let final_hash = record
         .node_outputs

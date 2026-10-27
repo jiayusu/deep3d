@@ -1,6 +1,7 @@
 //! Real PostgreSQL protocol checks. Native geometry is verified by the service,
 //! so output fixtures here exercise only immutable metadata and lease authority.
 
+use core_domain::{GeneralAcceptance, NodeAcceptance};
 use core_runtime::*;
 use core_storage::HeadToken;
 use postgres::{Client, NoTls};
@@ -27,6 +28,7 @@ fn task(key: &str) -> TaskSpec {
         depends_on: vec![],
         source_task: None,
         changes_mm: [("thickness_mm".into(), 16.0)].into(),
+        acceptance: None,
         max_attempts: 3,
         timeout_seconds: 600,
     }
@@ -123,6 +125,86 @@ fn make_retry_ready(lease: &Lease) {
         Client::connect(&std::env::var("DEEP3D_TEST_DATABASE_URL").unwrap(), NoTls).unwrap();
     client.execute("UPDATE deep3d_runtime.tasks SET available_at=clock_timestamp() WHERE run_id=$1 AND task_key=$2",
                    &[&lease.token.run_id,&lease.token.task_key]).unwrap();
+}
+
+#[test]
+fn generic_parameter_tasks_encode_independent_optional_acceptance() {
+    let node = Uuid::new_v4();
+    let acceptance = GeneralAcceptance::new(
+        [(
+            node,
+            NodeAcceptance {
+                solid_count: 1,
+                volume_mm3: Some(1200.0),
+                bounds_mm: None,
+            },
+        )]
+        .into(),
+    );
+    let mut generic = task("block");
+    generic.changes_mm = [("block width mm".into(), 24.0)].into();
+    generic.acceptance = Some(acceptance.clone());
+    validate_tasks(&[generic.clone()]).unwrap();
+    let json = serde_json::to_value(&generic).unwrap();
+    assert_eq!(
+        json["acceptance"],
+        serde_json::to_value(&acceptance).unwrap()
+    );
+    assert_eq!(serde_json::from_value::<TaskSpec>(json).unwrap(), generic);
+    assert!(serde_json::to_value(task("old-flange"))
+        .unwrap()
+        .get("acceptance")
+        .is_none());
+    generic.changes_mm = [("bad\nparameter".into(), 24.0)].into();
+    assert!(validate_tasks(&[generic.clone()]).is_err());
+    generic.changes_mm = [("width_mm".into(), 24.0)].into();
+    generic.acceptance.as_mut().unwrap().nodes.clear();
+    assert!(validate_tasks(&[generic]).is_err());
+}
+
+#[test]
+fn generic_goal_is_immutable_and_survives_claim_and_heartbeat() {
+    let Some(repo) = repository() else {
+        return;
+    };
+    let node = Uuid::new_v4();
+    let mut definition = task("generic-block");
+    definition.changes_mm = [("block_width_mm".into(), 24.0)].into();
+    definition.acceptance = Some(GeneralAcceptance::new(
+        [(
+            node,
+            NodeAcceptance {
+                solid_count: 1,
+                volume_mm3: Some(1200.0),
+                bounds_mm: Some([0.0, 0.0, 0.0, 24.0, 10.0, 5.0]),
+            },
+        )]
+        .into(),
+    ));
+    let frozen = spec(vec![definition.clone()]);
+    let _cleanup = submitted(&repo, &frozen);
+    let leased = claim(&repo, frozen.run_id, "generic-owner");
+    assert_eq!(leased.acceptance, definition.acceptance);
+    assert_eq!(leased.changes_mm, definition.changes_mm);
+    assert_eq!(
+        repo.heartbeat(&leased.token).unwrap().acceptance,
+        definition.acceptance
+    );
+    let mut changed = frozen.clone();
+    changed.tasks[0]
+        .acceptance
+        .as_mut()
+        .unwrap()
+        .nodes
+        .get_mut(&node)
+        .unwrap()
+        .volume_mm3 = Some(1.0);
+    assert_eq!(
+        repo.submit(&changed).unwrap_err().code,
+        "IDEMPOTENCY_CONFLICT"
+    );
+    let original = repo.get_run(frozen.run_id).unwrap();
+    assert_eq!(original.spec.tasks[0].acceptance, definition.acceptance);
 }
 
 #[test]

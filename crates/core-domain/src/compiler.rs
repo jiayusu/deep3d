@@ -16,39 +16,7 @@ impl Project {
         crate::validation::valid_id(revision_id)?;
         let mut features = Vec::with_capacity(self.features.len());
         for id in self.topological_order()? {
-            let definition = &self.features[&id];
-            let (op, inputs, parameters) = match &definition.operation {
-                Operation::Circle {
-                    radius,
-                    center_x,
-                    center_y,
-                } => (
-                    "profile.circle@1",
-                    BTreeMap::new(),
-                    BTreeMap::from([
-                        ("radius_mm".into(), self.resolve_length(radius)?),
-                        ("center_x_mm".into(), self.resolve_length(center_x)?),
-                        ("center_y_mm".into(), self.resolve_length(center_y)?),
-                    ]),
-                ),
-                Operation::Extrude { profile, distance } => (
-                    "solid.extrude@1",
-                    BTreeMap::from([("profile".into(), *profile)]),
-                    BTreeMap::from([("distance_mm".into(), self.resolve_length(distance)?)]),
-                ),
-                Operation::Cut { base, tool } => (
-                    "solid.cut@1",
-                    BTreeMap::from([("base".into(), *base), ("tool".into(), *tool)]),
-                    BTreeMap::new(),
-                ),
-            };
-            features.push(PlannedFeature {
-                id,
-                name: definition.name.clone(),
-                op: op.into(),
-                inputs,
-                parameters,
-            });
+            features.push(self.compile_feature(&self.features[&id])?);
         }
         Ok(ExecutionPlan {
             schema_version: PLAN_SCHEMA.into(),
@@ -62,7 +30,15 @@ impl Project {
                 .values()
                 .filter_map(|node| node.feature.map(|feature| (node.id, feature)))
                 .collect(),
-            acceptance: self.flange_spec()?,
+            scene: if self.acceptance.is_some() {
+                self.nodes.clone()
+            } else {
+                BTreeMap::new()
+            },
+            acceptance: match &self.acceptance {
+                Some(value) => Acceptance::Mechanical(value.clone()),
+                None => Acceptance::Flange(self.flange_spec()?),
+            },
             precision: self.precision.clone(),
         })
     }

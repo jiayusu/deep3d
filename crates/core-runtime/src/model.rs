@@ -1,4 +1,4 @@
-use core_domain::{canonical_bytes, digest_bytes, CoreError, Result};
+use core_domain::{canonical_bytes, digest_bytes, CoreError, GeneralAcceptance, Result};
 use core_storage::HeadToken;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -19,6 +19,8 @@ pub struct TaskSpec {
     pub depends_on: Vec<String>,
     pub source_task: Option<String>,
     pub changes_mm: BTreeMap<String, f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub acceptance: Option<GeneralAcceptance>,
     pub max_attempts: i32,
     pub timeout_seconds: i32,
 }
@@ -69,6 +71,8 @@ pub struct Lease {
     pub token: LeaseToken,
     pub source: ArtifactSource,
     pub changes_mm: BTreeMap<String, f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub acceptance: Option<GeneralAcceptance>,
     pub lease_until_unix_ms: i64,
     pub deadline_unix_ms: i64,
     pub heartbeat_after_seconds: f64,
@@ -135,13 +139,9 @@ pub struct RuntimeEvent {
     pub payload: serde_json::Value,
 }
 
-pub const LENGTH_PARAMETERS: [&str; 5] = [
-    "outer_diameter_mm",
-    "thickness_mm",
-    "center_hole_diameter_mm",
-    "bolt_hole_diameter_mm",
-    "bolt_circle_diameter_mm",
-];
+pub fn valid_parameter_name(name: &str) -> bool {
+    !name.trim().is_empty() && name.chars().count() <= 256 && !name.chars().any(char::is_control)
+}
 
 pub fn request_digest<T: Serialize>(value: &T) -> Result<String> {
     Ok(digest_bytes(&canonical_bytes(value)?))
@@ -178,15 +178,18 @@ pub fn validate_tasks(tasks: &[TaskSpec]) -> Result<()> {
             || !(1..=10).contains(&task.max_attempts)
             || !(1..=86400).contains(&task.timeout_seconds)
             || task.changes_mm.is_empty()
-            || task.changes_mm.len() > 5
+            || task.changes_mm.len() > 64
             || task
                 .changes_mm
                 .iter()
-                .any(|(k, v)| !LENGTH_PARAMETERS.contains(&k.as_str()) || !v.is_finite())
+                .any(|(k, v)| !valid_parameter_name(k) || !v.is_finite())
         {
             return Err(invalid(
                 "Invalid task identity, limits or parameter changes",
             ));
+        }
+        if let Some(acceptance) = &task.acceptance {
+            acceptance.validate()?;
         }
         let dependencies: BTreeSet<_> = task.depends_on.iter().collect();
         if dependencies.len() != task.depends_on.len()

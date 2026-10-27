@@ -33,6 +33,15 @@ pub fn apply_transaction(project: &Project, transaction: &Transaction) -> Result
     let mut candidate = project.clone();
     for command in &transaction.commands {
         match command {
+            Command::AcceptanceSet { acceptance } => {
+                if candidate.flange.is_some() {
+                    return Err(CoreError::new(
+                        "TYPE_MISMATCH",
+                        "Legacy flange acceptance follows its parameter binding",
+                    ));
+                }
+                candidate.acceptance = Some(acceptance.clone());
+            }
             Command::ParameterSet { id, value } => {
                 let parameter = candidate.parameters.get_mut(id).ok_or_else(|| {
                     CoreError::new("PARAMETER_NOT_FOUND", format!("Unknown parameter {id}"))

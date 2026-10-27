@@ -45,10 +45,11 @@ wheels = [
 
 [[package]]
 name = "deep3d-cad"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "cadquery-ocp-novtk" },
+    { name = "slvs" },
 ]
 
 [package.dev-dependencies]
@@ -59,7 +60,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "cadquery-ocp-novtk", specifier = "==8.0.1.0.0" }]
+requires-dist = [
+    { name = "cadquery-ocp-novtk", specifier = "==8.0.1.0.0" },
+    { name = "slvs", specifier = "==3.3" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -220,6 +224,22 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/28/d3/bb25ee567ce2f61ac52430cf99f446b0e6d49bdfa4188699ad005fdd16aa/ruff-0.13.3-py3-none-win32.whl", hash = "sha256:f14e0d1fe6460f07814d03c6e32e815bff411505178a1f539a38f6097d3e8ee3", size = 12334488, upload-time = "2025-10-02T19:29:24.782Z" },
     { url = "https://files.pythonhosted.org/packages/cf/49/12f5955818a1139eed288753479ba9d996f6ea0b101784bb1fe6977ec128/ruff-0.13.3-py3-none-win_amd64.whl", hash = "sha256:621e2e5812b691d4f244638d693e640f188bacbb9bc793ddd46837cea0503dd2", size = 13455262, upload-time = "2025-10-02T19:29:26.882Z" },
     { url = "https://files.pythonhosted.org/packages/fe/72/7b83242b26627a00e3af70d0394d68f8f02750d642567af12983031777fc/ruff-0.13.3-py3-none-win_arm64.whl", hash = "sha256:9e9e9d699841eaf4c2c798fa783df2fabc680b72059a02ca0ed81c460bc58330", size = 12538484, upload-time = "2025-10-02T19:29:28.951Z" },
+]
+
+[[package]]
+name = "slvs"
+version = "3.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ab/7f/e1ffa26cd3772cd347b1be0080ab9acfcce992babde97556a8c15afeb36b/slvs-3.3.tar.gz", hash = "sha256:d9573097aa7afadc437dbd0b8654f7c51012cb8e1f32de8f88ccd1b16252c4e3", size = 7270740, upload-time = "2026-10-21T03:21:53.428Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/18/6f/2d0292448c9f6b064207e23898b9cdff834263363ce73c221b5f94d8be0d/slvs-3.3-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:0002a515a99d683eb5580330c79f1f82fe1a0c395da41191391a078e0d7fb3a7", size = 286909, upload-time = "2026-10-21T03:21:03.079Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/c9/de73250085450cf4a5a749e33830ebb563560508a7c85e2d917933e57107/slvs-3.3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:1f5a8103729006ed4fcd57db7da759afa07ccb1f127055ea9f08b0ebcbc44e1a", size = 258161, upload-time = "2026-10-21T03:21:04.001Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/02/9c8d0a7f5c8fa14c24fcac875d07ca8119c8c97708966454080b4bf93b7e/slvs-3.3-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:e0430e6bf408ccbc98082c5d293ab63280c2f6b6478b6af60b1f3eaa94a717a7", size = 3018467, upload-time = "2026-10-21T03:21:04.99Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/8a/9c5984ca491e36067a026569af68c678fc297b2261a37dbbb181ce910a93/slvs-3.3-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d3d2b87cff7034fb23abad760c4cd1d315c7a49d64277fba23fdd1a6c89a176f", size = 3079945, upload-time = "2026-10-21T03:21:06.41Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/85/704ca2894f31465f0c04bbb8c9d25ec0f21af354f06b88474c57a52deb52/slvs-3.3-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:5097159ab86010a2e18c5f814aeffd9c8f1cc0464c7b3bb6267cb8dc81265204", size = 3956898, upload-time = "2026-10-21T03:21:08.355Z" },
+    { url = "https://files.pythonhosted.org/packages/b2/9e/7045bd23aae4a3704a9389d40719e3f0de06049eb84f5e70f1a1d812c778/slvs-3.3-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:a4a48c07446ba96ab367ed578baeba5fbad4fa0b5cb7ef4916484bd0a70e5e0c", size = 4071969, upload-time = "2026-10-21T03:21:09.784Z" },
+    { url = "https://files.pythonhosted.org/packages/af/70/d54b2a95a5dd976790dd5bbdf1ca31f0896964bbead151e3f6d045246b24/slvs-3.3-cp312-cp312-win32.whl", hash = "sha256:6fdb9ee56b8b48932c4e62638b2a3683f0c080e6e114542a23051da5e116628d", size = 252346, upload-time = "2026-10-21T03:21:11.035Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/fd/78b04420c01be7677d28d758789e720d1aa18eca04f21f7139fa6ffb410c/slvs-3.3-cp312-cp312-win_amd64.whl", hash = "sha256:ca25df05b8aea0abca3f6998c305a30ba8ac2f2a9e42c7ca196d2c021cccdb3b", size = 292650, upload-time = "2026-10-21T03:21:11.993Z" },
 ]
 
 [[package]]

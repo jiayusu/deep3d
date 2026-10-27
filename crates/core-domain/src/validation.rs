@@ -153,6 +153,14 @@ impl PrecisionProfile {
 
 impl Project {
     pub(crate) fn resolve_length(&self, expression: &ScalarExpr) -> Result<f64> {
+        self.resolve_scalar(expression, ScalarUnit::LengthMm)
+    }
+
+    pub(crate) fn resolve_angle(&self, expression: &ScalarExpr) -> Result<f64> {
+        self.resolve_scalar(expression, ScalarUnit::AngleRad)
+    }
+
+    fn resolve_scalar(&self, expression: &ScalarExpr, unit: ScalarUnit) -> Result<f64> {
         let (value, scale) = match expression {
             ScalarExpr::Literal { value } => (value, 1.0),
             ScalarExpr::Parameter {
@@ -168,23 +176,29 @@ impl Project {
                 (&parameter.value, finite(*scale, "parameter scale")?)
             }
         };
-        if value.unit() != ScalarUnit::LengthMm {
+        if value.unit() != unit {
             return Err(CoreError::new(
                 "TYPE_MISMATCH",
-                "Operation expects a length_mm expression",
+                format!("Operation expects a {unit:?} expression"),
             ));
         }
         finite(value.number() * scale, "resolved length")
     }
 
     pub fn flange_spec(&self) -> Result<FlangeSpec> {
+        let flange = self.flange.as_ref().ok_or_else(|| {
+            CoreError::new(
+                "TYPE_MISMATCH",
+                "Project uses general mechanical acceptance",
+            )
+        })?;
         let length = |id| self.resolve_length(&ScalarExpr::parameter(id, 1.0));
         let result = FlangeSpec {
-            outer_diameter_mm: length(self.flange.outer_diameter)?,
-            thickness_mm: length(self.flange.thickness)?,
-            center_hole_diameter_mm: length(self.flange.center_hole_diameter)?,
-            bolt_hole_diameter_mm: length(self.flange.bolt_hole_diameter)?,
-            bolt_circle_diameter_mm: length(self.flange.bolt_circle_diameter)?,
+            outer_diameter_mm: length(flange.outer_diameter)?,
+            thickness_mm: length(flange.thickness)?,
+            center_hole_diameter_mm: length(flange.center_hole_diameter)?,
+            bolt_hole_diameter_mm: length(flange.bolt_hole_diameter)?,
+            bolt_circle_diameter_mm: length(flange.bolt_circle_diameter)?,
             ..FlangeSpec::default()
         };
         result.validate()?;
@@ -316,68 +330,37 @@ impl Project {
                 "Project needs at least one solid output binding",
             ));
         }
-        let bound = [
-            self.flange.outer_diameter,
-            self.flange.thickness,
-            self.flange.center_hole_diameter,
-            self.flange.bolt_hole_diameter,
-            self.flange.bolt_circle_diameter,
-        ];
-        if bound.into_iter().collect::<BTreeSet<_>>().len() != 5 {
-            return Err(CoreError::new(
-                "PARAMETER_INVALID",
-                "Flange dimensions need distinct parameter identities",
-            ));
+        match (&self.flange, &self.acceptance) {
+            (Some(flange), None) => {
+                let bound = [
+                    flange.outer_diameter,
+                    flange.thickness,
+                    flange.center_hole_diameter,
+                    flange.bolt_hole_diameter,
+                    flange.bolt_circle_diameter,
+                ];
+                if bound.into_iter().collect::<BTreeSet<_>>().len() != 5 {
+                    return Err(CoreError::new(
+                        "PARAMETER_INVALID",
+                        "Flange dimensions need distinct parameter identities",
+                    ));
+                }
+                self.flange_spec()?;
+            }
+            (None, Some(acceptance)) => self.validate_acceptance(acceptance)?,
+            _ => {
+                return Err(CoreError::new(
+                    "ACCEPTANCE_INVALID",
+                    "Project needs exactly one flange or mechanical acceptance contract",
+                ))
+            }
         }
-        self.flange_spec()?;
         for (key, feature) in &self.features {
             add_id(*key, feature.id)?;
             valid_name(&feature.name)?;
-            let require = |id: Uuid, output_type| -> Result<()> {
-                let input = self.features.get(&id).ok_or_else(|| {
-                    CoreError::new("FEATURE_NOT_FOUND", format!("Unknown feature input {id}"))
-                })?;
-                if input.operation.output_type() != output_type {
-                    return Err(CoreError::new(
-                        "TYPE_MISMATCH",
-                        format!("Input {id} has an incompatible output type"),
-                    ));
-                }
-                Ok(())
-            };
-            match &feature.operation {
-                Operation::Circle {
-                    radius,
-                    center_x,
-                    center_y,
-                } => {
-                    let radius = self.resolve_length(radius)?;
-                    let x = self.resolve_length(center_x)?;
-                    let y = self.resolve_length(center_y)?;
-                    if !(0.05..=500.0).contains(&radius) || x.abs() > 1000.0 || y.abs() > 1000.0 {
-                        return Err(CoreError::new(
-                            "OUTSIDE_QUALIFIED_ENVELOPE",
-                            "Circle radius/center outside initial operation envelope",
-                        ));
-                    }
-                }
-                Operation::Extrude { profile, distance } => {
-                    require(*profile, OutputType::PlanarProfile)?;
-                    let distance = self.resolve_length(distance)?;
-                    if !(1.0..=1000.0).contains(&distance) {
-                        return Err(CoreError::new(
-                            "OUTSIDE_QUALIFIED_ENVELOPE",
-                            "Extrusion must be within 1..1000 mm",
-                        ));
-                    }
-                }
-                Operation::Cut { base, tool } => {
-                    require(*base, OutputType::BRepSolid)?;
-                    require(*tool, OutputType::BRepSolid)?;
-                }
-            }
+            self.validate_operation(&feature.operation)?;
         }
-        self.topological_order()?;
+        self.validate_geometry_budget()?;
         Ok(())
     }
 

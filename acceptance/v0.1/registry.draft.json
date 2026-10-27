@@ -1,0 +1,2482 @@
+{
+  "schema_version": "deep3d.acceptance-registry/1",
+  "registry_version": "v0.1-draft.1",
+  "contract": {
+    "id": "agent-native-3d-target-state/1",
+    "baseline_date": "2026-10-27",
+    "acceptance_date": "2026-11-01",
+    "thresholds_are_targets": true
+  },
+  "registration": {
+    "state": "draft",
+    "frozen_at": null,
+    "creates_execution": false,
+    "contains_measurements": false
+  },
+  "thresholds": {
+    "G1": {
+      "registered_cases": 10,
+      "min_full_successes": 8,
+      "all_claimed_completed_entities_geometry_valid": true
+    },
+    "G2": {
+      "deliveries_with_scene_parameters_features": 10,
+      "min_successful_agent_free_edit_rebuilds": 8
+    },
+    "G3": {
+      "registered_changes": 20,
+      "min_correct_final_states": 18,
+      "affected_dependency_recall": 1,
+      "unrelated_false_positives": 0,
+      "full_recompute_equivalence_required": true
+    },
+    "G4": {
+      "feature_nodes": 1000,
+      "p95_propagation_ms_exclusive_maximum": 100,
+      "accuracy": 1,
+      "exclude_geometry_recompute": true,
+      "record_test_machine": true
+    },
+    "G5": {
+      "registered_scenarios": 5,
+      "required_recoveries": 5,
+      "duplicate_publications": 0,
+      "unverified_publications": 0
+    },
+    "G6": {
+      "minimum_observed_end_to_end_seconds": 7200,
+      "minimum_verified_geometry_change_commits": 10,
+      "minimum_requirement_changes": 1,
+      "human_stepwise_cad_operations": 0
+    },
+    "G7": {
+      "evidence_bundle_for_every_success": true,
+      "minimum_clean_environment_reproductions": 8
+    }
+  },
+  "cases": [
+    {
+      "id": "C01",
+      "title": "四孔安装板",
+      "intent": "创建一个可编辑安装板：80×50×8 mm，XY 居中、底面 z=0。四个直径6 mm贯穿孔的中心为(±25,±15) mm，孔轴沿Z。保留板宽、板厚、孔径与孔位参数；四孔须分离且完全位于板内。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "extrude",
+        "boolean-cut",
+        "through-hole"
+      ],
+      "criteria": [
+        {
+          "id": "C01.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C01.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 1
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C01.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -40,
+              -25,
+              0,
+              40,
+              25,
+              8
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C01.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 31095.22131576614,
+            "formula": "80*50*8 - 4*pi*(6/2)^2*8",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C01.holes",
+          "kind": "geometry.axial-holes",
+          "scope": "mounting_plate",
+          "method_id": "geometry.axial-holes@1",
+          "expected": {
+            "axis": [
+              0,
+              0,
+              1
+            ],
+            "diameter_mm": 6,
+            "through": true,
+            "centers_mm": [
+              [
+                -25,
+                -15
+              ],
+              [
+                -25,
+                15
+              ],
+              [
+                25,
+                -15
+              ],
+              [
+                25,
+                15
+              ]
+            ],
+            "count": 4
+          },
+          "required": true,
+          "stage": "both"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "plate_thickness",
+        "new_value": 10,
+        "unit": "mm",
+        "expected_relation": "板厚和孔贯穿深度改变，孔径及XY孔位保持；原生源不依赖Agent可重建。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C02",
+      "title": "旋转阶梯轴",
+      "intent": "创建可编辑旋转阶梯轴：轴线Z，总长40 mm，z=0..20外径24 mm，z=20..40外径16 mm；全长有直径6 mm轴向贯穿孔。保留旋转剖面与各段尺寸的设计关系。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "revolve",
+        "stepped-profile",
+        "coaxial-relations"
+      ],
+      "criteria": [
+        {
+          "id": "C02.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C02.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 1
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C02.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -12,
+              -12,
+              0,
+              12,
+              12,
+              40
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C02.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 11938.052083641214,
+            "formula": "pi*((24/2)^2*20 + (16/2)^2*20 - (6/2)^2*40)",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C02.sections",
+          "kind": "geometry.coaxial-sections",
+          "scope": "stepped_shaft",
+          "method_id": "geometry.coaxial-sections@1",
+          "expected": {
+            "axis": [
+              0,
+              0,
+              1
+            ],
+            "sections": [
+              {
+                "z_mm": [
+                  0,
+                  20
+                ],
+                "outer_diameter_mm": 24
+              },
+              {
+                "z_mm": [
+                  20,
+                  40
+                ],
+                "outer_diameter_mm": 16
+              }
+            ],
+            "bore_diameter_mm": 6
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C02.intent",
+          "kind": "source.parametric-intent",
+          "scope": "source",
+          "method_id": "source.parametric-intent@1",
+          "expected": {
+            "required_relation": "editable_revolved_profile_and_segment_dimensions"
+          },
+          "required": true,
+          "stage": "source"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "large_section_diameter",
+        "new_value": 28,
+        "unit": "mm",
+        "expected_relation": "仅大径段及相关下游结果改变；孔径、总长、小径段目标保持。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C03",
+      "title": "指定外角圆角的L形截面件",
+      "intent": "创建L形截面实体：XY截面顶点依次为(0,0),(40,0),(40,6),(6,6),(6,30),(0,30) mm，沿Z拉伸20 mm。只把两条自由端上的四条纵向凸边圆成R2 mm，保留(6,6)内角和(0,0)共同外角；圆角须是可编辑Feature。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "polygon-profile",
+        "extrude",
+        "semantic-edge-selection",
+        "fillet"
+      ],
+      "criteria": [
+        {
+          "id": "C03.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C03.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 1
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C03.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              0,
+              0,
+              0,
+              40,
+              30,
+              20
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C03.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 7611.3274122871835,
+            "formula": "20*((40*6 + 6*30 - 6*6) - 4*(1-pi/4)*2^2)",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C03.fillets",
+          "kind": "geometry.selected-fillet-radii",
+          "scope": "angle_part",
+          "method_id": "geometry.selected-fillet-radii@1",
+          "expected": {
+            "radius_mm": 2,
+            "count": 4,
+            "longitudinal_axis": [
+              0,
+              0,
+              1
+            ],
+            "selected_xy_corners_mm": [
+              [
+                40,
+                0
+              ],
+              [
+                40,
+                6
+              ],
+              [
+                6,
+                30
+              ],
+              [
+                0,
+                30
+              ]
+            ],
+            "preserved_sharp_corners_mm": [
+              [
+                0,
+                0
+              ],
+              [
+                6,
+                6
+              ]
+            ]
+          },
+          "required": true,
+          "stage": "both"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "free_end_fillet_radius",
+        "new_value": 2.5,
+        "unit": "mm",
+        "expected_relation": "四个选定圆角改变；基底截面与拉伸Feature不重算，保留的尖角不被误改。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C04",
+      "title": "孔口倒角块",
+      "intent": "创建40×40×10 mm块体，XY居中且底面z=0，中心有直径10 mm贯穿孔。仅在z=10的孔口加1 mm、45°等距倒角，入口直径应为12 mm；底孔口和外棱保持原状。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "extrude",
+        "hole",
+        "chamfer",
+        "conical-measurement"
+      ],
+      "criteria": [
+        {
+          "id": "C04.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C04.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 1
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C04.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -20,
+              -20,
+              0,
+              20,
+              20,
+              10
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C04.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 15197.846675783407,
+            "formula": "40*40*10 - pi*5^2*10 - pi*(5*1^2 + 1^3/3)",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C04.chamfer",
+          "kind": "geometry.hole-mouth-chamfer",
+          "scope": "chamfer_block",
+          "method_id": "geometry.hole-mouth-chamfer@1",
+          "expected": {
+            "axis": [
+              0,
+              0,
+              1
+            ],
+            "top_z_mm": 10,
+            "bore_diameter_mm": 10,
+            "entry_diameter_mm": 12,
+            "axial_depth_mm": 1,
+            "angle_rad": 0.7853981633974483,
+            "bottom_unchanged": true
+          },
+          "required": true,
+          "stage": "both"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "hole_mouth_chamfer",
+        "new_value": 0.5,
+        "unit": "mm",
+        "expected_relation": "上孔口入口直径变为11 mm；孔的基本直径、底口和块体外形保持。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C05",
+      "title": "圆周螺栓阵列盘",
+      "intent": "创建外径100 mm、厚10 mm的圆盘，底面z=0，中心贯穿孔直径20 mm。在直径70 mm节圆上等分8个直径8 mm贯穿孔，首孔中心位于+x方向。孔数、节圆与起始角可编辑，保留阵列关系。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "circle",
+        "extrude",
+        "circular-pattern",
+        "boolean-cut"
+      ],
+      "criteria": [
+        {
+          "id": "C05.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C05.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 1
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C05.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -50,
+              -50,
+              0,
+              50,
+              50,
+              10
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C05.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 71376.9850895601,
+            "formula": "pi*10/4*(100^2-20^2-8*8^2)",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C05.bolts",
+          "kind": "geometry.circular-hole-pattern",
+          "scope": "bolt_disk",
+          "method_id": "geometry.circular-hole-pattern@1",
+          "expected": {
+            "hole_count": 8,
+            "hole_diameter_mm": 8,
+            "pitch_diameter_mm": 70,
+            "start_angle_rad": 0,
+            "axis": [
+              0,
+              0,
+              1
+            ],
+            "through": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C05.center",
+          "kind": "geometry.axial-holes",
+          "scope": "bolt_disk",
+          "method_id": "geometry.axial-holes@1",
+          "expected": {
+            "count": 1,
+            "centers_mm": [
+              [
+                0,
+                0
+              ]
+            ],
+            "diameter_mm": 20,
+            "axis": [
+              0,
+              0,
+              1
+            ],
+            "through": true
+          },
+          "required": true,
+          "stage": "both"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "bolt_count",
+        "new_value": 6,
+        "unit": "count",
+        "expected_relation": "孔数变6且等分角为π/3；中心孔和圆盘实体尺寸保持。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C06",
+      "title": "线性鳍片散热件",
+      "intent": "创建60×40×5 mm底座，XY居中、底面z=0。其上有5条与底座连成一个实体的直鳍片，各厚2 mm、沿Y长40 mm、从z=5升高15 mm，鳍片中心x依次为-20,-10,0,10,20 mm。保留鳍片数量、节距与高度参数。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "extrude",
+        "linear-pattern",
+        "fuse",
+        "parametric-relations"
+      ],
+      "criteria": [
+        {
+          "id": "C06.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C06.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 1
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C06.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -30,
+              -20,
+              0,
+              30,
+              20,
+              20
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C06.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 18000,
+            "formula": "60*40*5 + 5*2*40*15",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C06.fins",
+          "kind": "geometry.linear-rib-pattern",
+          "scope": "heatsink",
+          "method_id": "geometry.linear-rib-pattern@1",
+          "expected": {
+            "count": 5,
+            "thickness_mm": 2,
+            "length_mm": 40,
+            "height_mm": 15,
+            "base_z_mm": 5,
+            "centers_x_mm": [
+              -20,
+              -10,
+              0,
+              10,
+              20
+            ],
+            "fused_to_base": true
+          },
+          "required": true,
+          "stage": "both"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "fin_height",
+        "new_value": 18,
+        "unit": "mm",
+        "expected_relation": "底座保持不变，鳍片升高到z=23，仍与底座构成一个有效实体。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C07",
+      "title": "约束圆弧长槽板",
+      "intent": "创建40×20×6 mm板体，XY居中、底面z=0。中心有沿X方向、总长20 mm、宽6 mm的贯穿长圆槽：两端R3 mm半圆与两条直线相切。保留槽草图的相切、对称、宽度和总长约束。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "constraint-sketch",
+        "arc",
+        "tangency",
+        "boolean-cut"
+      ],
+      "criteria": [
+        {
+          "id": "C07.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C07.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 1
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C07.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -20,
+              -10,
+              0,
+              20,
+              10,
+              6
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C07.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 4126.3539967061515,
+            "formula": "40*20*6 - ((20-6)*6 + pi*3^2)*6",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C07.slot",
+          "kind": "geometry.stadium-slot",
+          "scope": "slotted_plate",
+          "method_id": "geometry.stadium-slot@1",
+          "expected": {
+            "center_mm": [
+              0,
+              0
+            ],
+            "axis": [
+              1,
+              0,
+              0
+            ],
+            "overall_length_mm": 20,
+            "width_mm": 6,
+            "end_radius_mm": 3,
+            "through": true,
+            "tangent_joins": 4
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C07.sketch",
+          "kind": "source.sketch-constraints",
+          "scope": "source",
+          "method_id": "source.sketch-constraints@1",
+          "expected": {
+            "required_constraints": [
+              "tangent",
+              "symmetry",
+              "width",
+              "overall_length"
+            ],
+            "remaining_dof": 0
+          },
+          "required": true,
+          "stage": "source"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "slot_width",
+        "new_value": 8,
+        "unit": "mm",
+        "expected_relation": "总长仍20 mm，端半径随宽度变为4 mm，草图仍相切且对称。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C08",
+      "title": "主参数驱动的阶梯孔轴承座",
+      "intent": "创建80×40×20 mm轴承座，XY居中、底面z=0。两个沿Z的直径12 mm贯穿孔中心在x=±20 mm、y=0；每孔从顶面向下5 mm设直径20 mm沉孔。两孔中心距始终等于座体宽度的一半，保留该参数关系。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "derived-parameters",
+        "counterbore",
+        "boolean-cut",
+        "parameter-relations"
+      ],
+      "criteria": [
+        {
+          "id": "C08.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C08.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 1
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C08.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -40,
+              -20,
+              0,
+              40,
+              20,
+              20
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C08.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 57465.48728053323,
+            "formula": "80*40*20 - 2*pi*6^2*20 - 2*pi*(10^2-6^2)*5",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C08.bores",
+          "kind": "geometry.counterbore-pattern",
+          "scope": "bearing_block",
+          "method_id": "geometry.counterbore-pattern@1",
+          "expected": {
+            "centers_mm": [
+              [
+                -20,
+                0
+              ],
+              [
+                20,
+                0
+              ]
+            ],
+            "axis": [
+              0,
+              0,
+              1
+            ],
+            "through_diameter_mm": 12,
+            "counterbore_diameter_mm": 20,
+            "counterbore_depth_mm": 5,
+            "top_z_mm": 20
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C08.relation",
+          "kind": "source.parameter-relation",
+          "scope": "source",
+          "method_id": "source.parameter-relation@1",
+          "expected": {
+            "relation": "hole_center_distance = block_width/2"
+          },
+          "required": true,
+          "stage": "source"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "block_width",
+        "new_value": 96,
+        "unit": "mm",
+        "expected_relation": "座体宽变96 mm时，两孔中心距变48 mm且对称；孔径、沉孔深度和座高保持。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C09",
+      "title": "共享定义的板与隔套刚性装配",
+      "intent": "建立小装配：两块40×30×5 mm板分别占z=0..5、15..20，均XY居中；四个半径3 mm、高10 mm隔套位于x=±12、y=±8、z=5..15。板共享一个定义，隔套共享一个定义；保留装配层级、实例定位和BOM，部件接触但不得体积穿透。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "rigid-assembly",
+        "shared-part-definitions",
+        "bom",
+        "interference",
+        "spatial-relations"
+      ],
+      "criteria": [
+        {
+          "id": "C09.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C09.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 6
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C09.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -20,
+              -15,
+              0,
+              20,
+              15,
+              20
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C09.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 13130.973355292326,
+            "formula": "2*40*30*5 + 4*pi*3^2*10",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C09.structure",
+          "kind": "assembly.structure",
+          "scope": "plate_spacer_stack",
+          "method_id": "assembly.structure@1",
+          "expected": {
+            "part_definitions": 2,
+            "instances": 6,
+            "bom_quantities": [
+              2,
+              4
+            ],
+            "named_hierarchy": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C09.placement",
+          "kind": "assembly.rigid-relations",
+          "scope": "plate_spacer_stack",
+          "method_id": "assembly.rigid-relations@1",
+          "expected": {
+            "plate_z_ranges_mm": [
+              [
+                0,
+                5
+              ],
+              [
+                15,
+                20
+              ]
+            ],
+            "spacer_center_xy_mm": [
+              [
+                -12,
+                -8
+              ],
+              [
+                -12,
+                8
+              ],
+              [
+                12,
+                -8
+              ],
+              [
+                12,
+                8
+              ]
+            ],
+            "spacer_z_range_mm": [
+              5,
+              15
+            ]
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C09.interference",
+          "kind": "assembly.interference-volume",
+          "scope": "all_component_pairs",
+          "method_id": "assembly.interference-volume@1",
+          "expected": {
+            "maximum_mm3": 0,
+            "numerical_guard_mm3": 1e-9
+          },
+          "required": true,
+          "stage": "both"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "plate_gap",
+        "new_value": 14,
+        "unit": "mm",
+        "expected_relation": "上板底面变19 mm，隔套高14 mm；两板的共享几何定义不重算，BOM数量保持。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    },
+    {
+      "id": "C10",
+      "title": "跨组件引用的门架",
+      "intent": "建立刚性门架装配：底座100×60×6 mm，XY居中且底面z=0；两根10×10×40 mm立柱中心在x=±35、y=0，立于底座上；一根90×10×8 mm横梁由立柱顶面支撑。保留组件层级与BOM，横梁高度引用底座厚度和立柱高度；开口净宽60 mm、净高40 mm，部件不得体积穿透。",
+      "intent_language": "zh-CN",
+      "capability_tags": [
+        "multi-component-assembly",
+        "cross-component-reference",
+        "contact",
+        "bom",
+        "spatial-relations"
+      ],
+      "criteria": [
+        {
+          "id": "C10.validity",
+          "kind": "geometry.valid-solid",
+          "scope": "all_completed_entities",
+          "method_id": "geometry.valid-solid@1",
+          "expected": {
+            "all_valid": true,
+            "all_closed": true,
+            "all_positive_orientation": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C10.count",
+          "kind": "geometry.solid-count",
+          "scope": "assembly",
+          "method_id": "geometry.solid-count@1",
+          "expected": {
+            "count": 4
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C10.bounds",
+          "kind": "geometry.axis-aligned-bounds",
+          "scope": "assembly",
+          "method_id": "geometry.axis-aligned-bounds@1",
+          "expected": {
+            "units": "mm",
+            "order": "xmin_ymin_zmin_xmax_ymax_zmax",
+            "values": [
+              -50,
+              -30,
+              0,
+              50,
+              30,
+              54
+            ],
+            "absolute_tolerance_mm": 0.001,
+            "exchange_tolerance_mm": 0.005
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C10.volume",
+          "kind": "geometry.analytic-volume",
+          "scope": "assembly",
+          "method_id": "geometry.analytic-volume@1",
+          "expected": {
+            "units": "mm3",
+            "value": 51200,
+            "formula": "100*60*6 + 2*10*10*40 + 90*10*8",
+            "relative_tolerance": 0.000001
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C10.structure",
+          "kind": "assembly.structure",
+          "scope": "portal",
+          "method_id": "assembly.structure@1",
+          "expected": {
+            "part_definitions": 3,
+            "instances": 4,
+            "bom_quantities": [
+              1,
+              2,
+              1
+            ],
+            "named_hierarchy": true
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C10.opening",
+          "kind": "assembly.opening-and-support",
+          "scope": "portal",
+          "method_id": "assembly.opening-and-support@1",
+          "expected": {
+            "clear_width_mm": 60,
+            "clear_height_mm": 40,
+            "beam_bottom_z_mm": 46,
+            "required_contact_pairs": [
+              "base-left_upright",
+              "base-right_upright",
+              "left_upright-beam",
+              "right_upright-beam"
+            ]
+          },
+          "required": true,
+          "stage": "both"
+        },
+        {
+          "id": "C10.interference",
+          "kind": "assembly.interference-volume",
+          "scope": "all_component_pairs",
+          "method_id": "assembly.interference-volume@1",
+          "expected": {
+            "maximum_mm3": 0,
+            "numerical_guard_mm3": 1e-9
+          },
+          "required": true,
+          "stage": "both"
+        }
+      ],
+      "editability_probe": {
+        "parameter": "upright_height",
+        "new_value": 52,
+        "unit": "mm",
+        "expected_relation": "横梁底面随动到58 mm，净高52 mm；底座与横梁自身几何保持，仅相应实例位置和立柱几何改变。",
+        "agent_allowed": false
+      },
+      "delivery_requirements": [
+        "goal-version-and-criterion-bindings",
+        "editable-native-source",
+        "scene-parameter-feature-manifest",
+        "native-brep",
+        "step-export",
+        "independent-native-and-step-reports",
+        "version-and-diff",
+        "agent-free-rebuild-instructions",
+        "failure-and-blocker-record"
+      ],
+      "reference_policy": "intent_visible_oracle_separate_no_reference_ir_in_planner_context"
+    }
+  ],
+  "changes": [
+    {
+      "id": "M01",
+      "seed_case": "C01",
+      "seed_asset_id": "seed.C01.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "板厚8→10 mm，四孔仍贯穿；XY尺寸、孔位和孔径保持。",
+      "category": "upstream_parameter",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.plate_thickness"
+        ],
+        "invalidated_existing_roles": [
+          "stock.extrude",
+          "holes.tools",
+          "holes.cut"
+        ],
+        "preserved_roles": [
+          "stock.profile",
+          "holes.profiles"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "thickness=10",
+          "four_through_holes",
+          "unchanged_xy_and_hole_diameters"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M02",
+      "seed_case": "C01",
+      "seed_asset_id": "seed.C01.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "板宽改96 mm，原四孔中心坐标保持不变。",
+      "category": "upstream_parameter",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.plate_width"
+        ],
+        "invalidated_existing_roles": [
+          "stock.profile",
+          "stock.extrude",
+          "holes.cut"
+        ],
+        "preserved_roles": [
+          "holes.profiles",
+          "holes.tools"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "width=96",
+          "hole_centers=original"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M03",
+      "seed_case": "C02",
+      "seed_asset_id": "seed.C02.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "阶梯轴大径段外径24→28 mm，其余保持。",
+      "category": "upstream_parameter",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.large_diameter"
+        ],
+        "invalidated_existing_roles": [
+          "shaft.profile",
+          "shaft.revolve",
+          "shaft.cut"
+        ],
+        "preserved_roles": [
+          "bore.profile",
+          "bore.extrude"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "large_diameter=28",
+          "small_diameter=16",
+          "length=40",
+          "bore_diameter=6"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M04",
+      "seed_case": "C03",
+      "seed_asset_id": "seed.C03.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "指定自由端圆角R2→R2.5 mm，其余保持。",
+      "category": "local_feature",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.fillet_radius"
+        ],
+        "invalidated_existing_roles": [
+          "free_ends.fillet"
+        ],
+        "preserved_roles": [
+          "angle.profile",
+          "angle.extrude"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "four_selected_fillet_radii=2.5",
+          "preserved_sharp_corners"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M05",
+      "seed_case": "C04",
+      "seed_asset_id": "seed.C04.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "上孔口倒角缩为0.5 mm，底口和外棱不改。",
+      "category": "local_feature",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.chamfer_distance"
+        ],
+        "invalidated_existing_roles": [
+          "mouth.chamfer"
+        ],
+        "preserved_roles": [
+          "block.profile",
+          "block.extrude",
+          "hole.cut"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "entry_diameter=11",
+          "unchanged_base_bore",
+          "bottom_unchanged"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M06",
+      "seed_case": "C05",
+      "seed_asset_id": "seed.C05.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "螺栓节圆直径70→76 mm，孔数与孔径保持。",
+      "category": "upstream_parameter",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.bolt_pitch"
+        ],
+        "invalidated_existing_roles": [
+          "bolt.seed_placement",
+          "bolt.pattern",
+          "bolts.cut"
+        ],
+        "preserved_roles": [
+          "disk.extrude",
+          "center.cut",
+          "bolt.profile"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "pitch_diameter=76",
+          "bolt_count=8",
+          "bolt_diameter=8"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M07",
+      "seed_case": "C05",
+      "seed_asset_id": "seed.C05.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "改为6个等分螺栓孔，保留100 mm圆盘、70 mm节圆和中心孔。",
+      "category": "topology_change",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "bolt.pattern.definition"
+        ],
+        "invalidated_existing_roles": [
+          "bolt.pattern",
+          "bolts.cut"
+        ],
+        "preserved_roles": [
+          "disk.profile",
+          "disk.extrude",
+          "center.cut",
+          "bolt.seed"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "bolt_count=6",
+          "equal_angle=pi/3",
+          "center_hole_unchanged"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M08",
+      "seed_case": "C06",
+      "seed_asset_id": "seed.C06.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "鳍片高度15→18 mm，底座及鳍片节距保持。",
+      "category": "upstream_parameter",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.fin_height"
+        ],
+        "invalidated_existing_roles": [
+          "fin.extrude",
+          "fin.pattern",
+          "heatsink.fuse"
+        ],
+        "preserved_roles": [
+          "base.profile",
+          "base.extrude",
+          "fin.profile"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "top_z=23",
+          "fused_solid_count=1"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M09",
+      "seed_case": "C06",
+      "seed_asset_id": "seed.C06.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "鳍片改7条、中心间距8 mm，关于x=0对称；高度和底座保持。",
+      "category": "topology_change",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "fin.pattern.definition"
+        ],
+        "invalidated_existing_roles": [
+          "fin.pattern",
+          "heatsink.fuse"
+        ],
+        "preserved_roles": [
+          "base.extrude",
+          "fin.profile",
+          "fin.extrude"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "fin_count=7",
+          "centers_x=-24,-16,-8,0,8,16,24",
+          "height=15"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M10",
+      "seed_case": "C07",
+      "seed_asset_id": "seed.C07.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "长圆槽宽改8 mm，总长仍20 mm，端部与直线保持相切。",
+      "category": "upstream_parameter",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.slot_width"
+        ],
+        "invalidated_existing_roles": [
+          "slot.sketch",
+          "slot.extrude",
+          "slot.cut"
+        ],
+        "preserved_roles": [
+          "plate.profile",
+          "plate.extrude"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "slot_width=8",
+          "end_radius=4",
+          "overall_length=20",
+          "tangent_joins=4"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M11",
+      "seed_case": "C08",
+      "seed_asset_id": "seed.C08.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "轴承座宽80→96 mm，两孔中心距继续等于座宽一半。",
+      "category": "upstream_parameter",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.block_width"
+        ],
+        "invalidated_existing_roles": [
+          "block.profile",
+          "block.extrude",
+          "bores.placement",
+          "counterbores.placement",
+          "bores.cut",
+          "counterbores.cut"
+        ],
+        "preserved_roles": [
+          "bore.profile",
+          "counterbore.profile"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "block_width=96",
+          "hole_center_distance=48",
+          "hole_diameters_and_depths_unchanged"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M12",
+      "seed_case": "C09",
+      "seed_asset_id": "seed.C09.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "上下板净间距由10改14 mm，隔套随之加长并继续支撑上板。",
+      "category": "cross_component",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.plate_gap"
+        ],
+        "invalidated_existing_roles": [
+          "spacer.extrude",
+          "spacer.instances",
+          "top_plate.instance"
+        ],
+        "preserved_roles": [
+          "plate.profile",
+          "plate.extrude",
+          "spacer.profile",
+          "bottom_plate.instance"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "top_plate_bottom_z=19",
+          "spacer_height=14",
+          "no_interference",
+          "bom_unchanged"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M13",
+      "seed_case": "C10",
+      "seed_asset_id": "seed.C10.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "立柱高度40→52 mm，横梁保持支撑关系。",
+      "category": "cross_component",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.upright_height"
+        ],
+        "invalidated_existing_roles": [
+          "upright.extrude",
+          "upright.instances",
+          "beam.instance"
+        ],
+        "preserved_roles": [
+          "base.profile",
+          "base.extrude",
+          "beam.profile",
+          "beam.extrude"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "beam_bottom_z=58",
+          "opening_height=52",
+          "beam_body_unchanged"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M14",
+      "seed_case": "C10",
+      "seed_asset_id": "seed.C10.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "横梁长度90→94 mm，立柱、底座和横梁底面位置保持。",
+      "category": "local_feature",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.beam_length"
+        ],
+        "invalidated_existing_roles": [
+          "beam.profile",
+          "beam.extrude",
+          "beam.instance"
+        ],
+        "preserved_roles": [
+          "base.extrude",
+          "upright.extrude",
+          "upright.instances"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "beam_length=94",
+          "beam_bottom_z=46",
+          "uprights_unchanged"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M15",
+      "seed_case": "C09",
+      "seed_asset_id": "seed.C09.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "将前左隔套实例重命名为spacer_service，保持其几何与位置。",
+      "category": "metadata_only",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "scene.spacer_front_left.name"
+        ],
+        "invalidated_existing_roles": [],
+        "preserved_roles": [
+          "all_existing_geometry_features"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "scene-name",
+          "native-version",
+          "bom-display",
+          "step-delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "same_geometric_observations",
+          "all_existing_feature_geometry_hashes_reused",
+          "step_instance_name=spacer_service"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M16",
+      "seed_case": "C09",
+      "seed_asset_id": "seed.C09.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "将四个隔套的x坐标从±12改为±10 mm，y坐标及上下接触关系保持。",
+      "category": "cross_component",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "param.spacer_x_offset"
+        ],
+        "invalidated_existing_roles": [
+          "spacer.instances"
+        ],
+        "preserved_roles": [
+          "plate.profile",
+          "plate.extrude",
+          "plate.instances",
+          "spacer.profile",
+          "spacer.extrude"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "goal-contract",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "spacer_x=+-10",
+          "spacer_y=+-8",
+          "spacer_z=5..15",
+          "plate_bodies_unchanged"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M17",
+      "seed_case": "C09",
+      "seed_asset_id": "seed.C09.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "在中心增加一个同定义隔套，保持原6个实例的形状和位置。",
+      "category": "topology_change",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "scene.new_center_spacer"
+        ],
+        "invalidated_existing_roles": [],
+        "preserved_roles": [
+          "all_existing_geometry_features"
+        ],
+        "new_roles": [
+          "spacer.center_instance"
+        ],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "scene",
+          "bom",
+          "assembly-aggregate",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "instances=7",
+          "spacer_quantity=5",
+          "plate_quantity=2",
+          "new_spacer_center=0,0",
+          "no_interference"
+        ],
+        "compare_full_recompute": true
+      }
+    },
+    {
+      "id": "M18",
+      "seed_case": "C01",
+      "seed_asset_id": "seed.C01.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "保持80×50板和原四孔中心，但将四孔都改直径60 mm，并要求孔互不相交、完全在板内且壁厚至少2 mm。",
+      "category": "invalid_input",
+      "expected_outcome": "reject_preserve_last_verified",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "proposed_goal.conflicting_hole_diameter"
+        ],
+        "invalidated_existing_roles": [],
+        "preserved_roles": [
+          "all_committed_features",
+          "last_verified_publication"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "rejected-goal-proposal",
+          "failure-evidence"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "required_response": "conflict_or_failed_with_geometric_witness",
+        "authoritative_state_unchanged": true,
+        "no_unverified_publication": true,
+        "conflict_witnesses": [
+          "hole_overlap",
+          "hole_outside_stock",
+          "minimum_wall_violation"
+        ]
+      }
+    },
+    {
+      "id": "M19",
+      "seed_case": "C02",
+      "seed_asset_id": "seed.C02.editable-v1",
+      "entry_mode": "typed_ir",
+      "change_request": "删除仍被旋转Feature引用的阶梯剖面，不同时删除或重接下游。",
+      "category": "invalid_input",
+      "expected_outcome": "reject_preserve_last_verified",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "proposed_transaction.delete_referenced_profile"
+        ],
+        "invalidated_existing_roles": [],
+        "preserved_roles": [
+          "all_committed_features",
+          "last_verified_publication"
+        ],
+        "new_roles": [],
+        "removed_roles": [],
+        "metadata_changed_roles": [
+          "rejected-transaction",
+          "failure-evidence"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "required_response": "dangling_reference_rejected",
+        "authoritative_state_unchanged": true,
+        "no_partial_transaction": true,
+        "no_unverified_publication": true
+      }
+    },
+    {
+      "id": "M20",
+      "seed_case": "C09",
+      "seed_asset_id": "seed.C09.editable-v1",
+      "entry_mode": "natural_language",
+      "change_request": "移除前左隔套并更新装配与BOM，保留其余组件形状和位置。",
+      "category": "topology_change",
+      "expected_outcome": "verified_new_commit",
+      "dependency_oracle": {
+        "binding_state": "requires_independent_seed_binding_before_freeze",
+        "changed_roles": [
+          "scene.remove_spacer_front_left"
+        ],
+        "invalidated_existing_roles": [],
+        "preserved_roles": [
+          "remaining_plate_features",
+          "remaining_spacer_features",
+          "shared_part_definitions"
+        ],
+        "new_roles": [],
+        "removed_roles": [
+          "spacer.front_left_instance"
+        ],
+        "metadata_changed_roles": [
+          "scene",
+          "bom",
+          "assembly-aggregate",
+          "version",
+          "delivery"
+        ],
+        "oracle_asset_sha256": null
+      },
+      "final_state_oracle": {
+        "relations": [
+          "instances=5",
+          "spacer_quantity=3",
+          "plate_quantity=2",
+          "remaining_geometry_unchanged"
+        ],
+        "compare_full_recompute": true
+      }
+    }
+  ],
+  "recovery_scenarios": [
+    {
+      "id": "R01",
+      "title": "验证接纳前Worker崩溃",
+      "injection_point": "实际CAD已产生候选字节、可信验收/公开提交尚未成功",
+      "disturbances": [
+        "hard_worker_process_termination",
+        "worker_restart_without_chat_context"
+      ],
+      "required_observations": [
+        "last_verified_public_head_and_assets_unchanged",
+        "unfinished_work_discoverable_from_authority",
+        "replacement_attempt_has_new_execution_epoch",
+        "only_newly_verified_result_can_be_public"
+      ],
+      "forbidden_outcomes": [
+        "candidate_becomes_public_on_restart",
+        "loss_of_last_verified_source",
+        "old_attempt_regains_authority"
+      ],
+      "seed_requirement": "one eligible pre-registered case with a real valid source and an active native CAD process",
+      "evidence_requirements": [
+        "before_and_after_authority_snapshots",
+        "kill_and_restart_records_with_real_process_ids",
+        "attempt_and_epoch_records",
+        "candidate_and_publication_bindings",
+        "agent_free_rebuild_report"
+      ]
+    },
+    {
+      "id": "R02",
+      "title": "公开提交成功但回执丢失",
+      "injection_point": "权威提交事务已成功、调用方尚未收到成功回执",
+      "disturbances": [
+        "lost_completion_response",
+        "retry_same_request_after_lease_expiry"
+      ],
+      "required_observations": [
+        "same_operation_digest_returns_original_publication",
+        "public_generation_advances_once",
+        "one_accepted_fact_for_task",
+        "exact_source_and_artifact_hashes_preserved"
+      ],
+      "forbidden_outcomes": [
+        "second_publication_from_retry",
+        "stale_receipt_moves_head_back",
+        "new_geometric_compute_required_to_confirm_existing_commit"
+      ],
+      "seed_requirement": "one pre-registered successful case whose publication endpoint has a stable operation identity",
+      "evidence_requirements": [
+        "committed_receipt_read_independently",
+        "transport_fault_record",
+        "identical_retry_request_hashes",
+        "publication_uniqueness_query",
+        "public_version_diff"
+      ]
+    },
+    {
+      "id": "R03",
+      "title": "重复与乱序送达及旧Attempt回写",
+      "injection_point": "同一Task经历租约失效和新Attempt领取，旧回调仍可到达",
+      "disturbances": [
+        "duplicate_claim_and_completion_delivery",
+        "out_of_order_callbacks",
+        "late_expired_attempt_result"
+      ],
+      "required_observations": [
+        "one_current_authoritative_attempt",
+        "old_fencing_tuple_rejected",
+        "duplicate_same_result_is_read_only_receipt_replay",
+        "concurrent_result_conflict_is_explicit"
+      ],
+      "forbidden_outcomes": [
+        "two_publications_for_one_task",
+        "old_result_overwrites_replacement",
+        "silent_head_overwrite"
+      ],
+      "seed_requirement": "a real frozen task graph with at least two eligible workers and one timed-out attempt",
+      "evidence_requirements": [
+        "delivery_ids_and_request_digests",
+        "database_time_and_lock_decision_records",
+        "both_attempt_tokens",
+        "rejection_codes",
+        "accepted_output_and_head_history"
+      ]
+    },
+    {
+      "id": "R04",
+      "title": "执行中需求修改与并发工程变更",
+      "injection_point": "旧目标的几何计算正在执行，新的自然语言目标和并发工程提交到达",
+      "disturbances": [
+        "requirement_version_change",
+        "concurrent_engineering_edit",
+        "old_goal_result_arrives_late"
+      ],
+      "required_observations": [
+        "goal_version_change_is_visible",
+        "control_epoch_revokes_old_commit_authority",
+        "verified_history_is_retained",
+        "new_plan_or_explicit_conflict_has_bound_current_inputs",
+        "recomputed_result_is_reassessed_against_new_goal"
+      ],
+      "forbidden_outcomes": [
+        "old_evidence_satisfies_changed_requirement_without_reassessment",
+        "old_result_published_under_new_goal",
+        "silent_merge_of_incompatible_candidates"
+      ],
+      "seed_requirement": "a registered editable part/assembly with an independently defined change request and expected constraint delta",
+      "evidence_requirements": [
+        "old_and_new_goal_contract_hashes",
+        "public_head_and_control_epoch_timeline",
+        "candidate_adoption_or_rejection_records",
+        "dependency_explanation",
+        "new_goal_acceptance_report"
+      ]
+    },
+    {
+      "id": "R05",
+      "title": "模型切换、服务重启与调用超时",
+      "injection_point": "多阶段真实自然语言任务中途，持久计划和最后验证版本已存在",
+      "disturbances": [
+        "switch_to_another_recorded_model_build",
+        "coordinator_and_worker_restart",
+        "temporary_model_or_network_timeout"
+      ],
+      "required_observations": [
+        "new_model_receives_version_bound_goal_and_authoritative_context",
+        "editable_source_rebuilds_without_original_model_or_prompt",
+        "pending_calls_have_stable_step_identity_or_explicit_uncertain_outcome",
+        "resume_does_not_duplicate_publication",
+        "same_frozen_goal_criteria_are_checked"
+      ],
+      "forbidden_outcomes": [
+        "chat_history_is_only_source_of_progress",
+        "model_switch_changes_acceptance_rules",
+        "fake_transport_replay_is_reported_as_real_model_switch",
+        "timeout_is_reported_as_zero_cost_or_success_without_receipt"
+      ],
+      "seed_requirement": "one real NL case and two usable model identities; missing provider access is insufficient evidence, not a substitute pass",
+      "evidence_requirements": [
+        "model_adapter_build_and_configuration_ids_without_secrets",
+        "persistent_context_snapshot_hashes",
+        "restart_and_timeout_records",
+        "IR_and_goal_version_bindings",
+        "independent_geometry_and_rebuild_reports"
+      ]
+    }
+  ],
+  "invalidation_benchmark": {
+    "id": "G4-HYBRID-1000",
+    "state": "planned_not_started",
+    "definition": "Measure the production invalidation API over one frozen 1000-Feature DAG; no CAD geometry computation, model calls, network or disk transfer is in the timed region.",
+    "graph": {
+      "feature_nodes": 1000,
+      "id_format": "f0000..f0999",
+      "generator_contract": "hybrid-chain-fanout-joins@1",
+      "seed": 20261027,
+      "definition": "f0000..f0099 have no feature parents. For i=100..999 add edge f(i mod 100)->fi; for i>100 add f(i-1)->fi; if i mod7=0 also add f(max(0,i-101))->fi. Deduplicate edges.",
+      "graph_asset_sha256": null,
+      "independent_oracle_sha256": null
+    },
+    "queries": {
+      "query_count": 1000,
+      "definition": "For query j=0..999, edit Feature f((37*j) mod1000); preserve node identities. The fixture records the exact expected invalidated set and reason edges for every query, independently of the production implementation.",
+      "warmup_requests": 100,
+      "measured_requests": 1000,
+      "order": "fixed_frozen_order",
+      "cold_index_build_measured_separately": true
+    },
+    "timing": {
+      "clock": "monotonic_high_resolution",
+      "unit": "ms",
+      "start": "Immediately before the production API maps the normalized change to dirty seeds and traverses dependencies.",
+      "stop": "After exact invalidated Feature IDs and reason bindings have been materialized; include any index rebuild performed internally by this same API.",
+      "exclude": [
+        "CAD_geometry_recompute",
+        "initial_fixture_loading",
+        "transport",
+        "report_serialization"
+      ],
+      "quantile": "nearest_rank",
+      "p95_definition": "sort N durations ascending, choose index ceil(0.95*N)-1; strict threshold <100ms",
+      "all_samples_retained": true
+    },
+    "machine_manifest_required": [
+      "machine_id",
+      "os",
+      "architecture",
+      "cpu",
+      "logical_cpus",
+      "memory_bytes",
+      "power_policy",
+      "compiler",
+      "build_profile",
+      "process_limits",
+      "clock"
+    ],
+    "accuracy": {
+      "definition": "Every measured result set equals its independent expected set; report false positives and false negatives, not just aggregate hit rate.",
+      "required": 1
+    },
+    "forbidden": [
+      "selecting_only_fast_queries",
+      "discarding_slow_samples_after_measurement",
+      "using_a_test_only_invalidation_algorithm",
+      "hiding_per_request_index_rebuild_from_timing",
+      "including_geometry_to_explain_away_wrong_sets"
+    ]
+  },
+  "autonomy_run": {
+    "id": "G6-AUTONOMOUS-7200",
+    "state": "planned_not_started",
+    "definition": "A real multi-stage modeling task lasts at least 7200 observed seconds, with at least 10 verified commits that make actual geometric changes, at least one external requirement change and zero human stepwise CAD operations.",
+    "scenario": "Create and iteratively adapt an editable small fortified settlement: enclosure, entry, towers, principal building and circulation layout, using explicit dimensional/spatial goals rather than prescribed CAD commands. Scope and initial independent criteria are frozen before the run.",
+    "stage_policy": "Milestones describe observable engineering results and constraints; they must not encode a fixed IR answer script. A planner chooses supported CAD actions and repairs.",
+    "requirement_change": {
+      "trigger": "After an independently verified intermediate milestone; exact injection condition frozen before start.",
+      "request": "Widen the principal entry while preserving enclosure continuity, required tower clearances and editable dependencies.",
+      "source": "external_registered_requirement_event",
+      "must_create_new_goal_version": true
+    },
+    "valid_commit_evidence": [
+      "unique_authoritative_commit_id",
+      "bound_goal_and_plan_versions",
+      "editable_source_hash",
+      "independent_required_checks_all_pass",
+      "geometry_delta_from_previous_verified_commit",
+      "before_after_criterion_observations"
+    ],
+    "geometry_change_policy": "STEP header changes, new UUIDs, renames, byte-only differences and unused parameter changes are not geometric changes. Each counted commit requires a detector-supported change in actual dimensions, topology, relative placement or occupied geometry beyond the frozen comparison tolerance.",
+    "duration_policy": "Retain wall-clock timestamps and monotonic elapsed time plus a classified activity-interval manifest. Legitimate planning, computation, verification, recovery and pending registered dependencies can be explained; empty queues, artificial sleeps, heartbeat-only survival and waiting for a human to operate CAD cannot pad the claimed autonomous span. CPU need not be continuously saturated.",
+    "human_policy": {
+      "allowed": [
+        "initial_goal",
+        "one_or_more_natural_language_requirement_changes",
+        "explicit_contract_clarification_if_recorded"
+      ],
+      "forbidden": [
+        "choosing_each_CAD_operation",
+        "manual_modeling_or_feature_editing",
+        "manually_fixing_hidden_source_state"
+      ]
+    },
+    "completion_rule": "All duration, verified-change-commit, requirement-change and human-operation conditions must be evidenced; a partial run remains failed or insufficient_evidence as applicable."
+  },
+  "long_horizon": {
+    "id": "LH-001",
+    "state": "planned_not_started",
+    "definition": "72-hour castle modeling target is outside the week's minimum line and is not started or satisfied by this registry.",
+    "minimum_observed_seconds": 259200,
+    "initial_goal": "创建带有外墙、塔楼、主楼、城门、内部道路和居住区域的中世纪风格城堡场景；主要结构可编辑，设计关系可追踪。",
+    "required_final_observations": [
+      "reopen_and_continue_editing_major_components",
+      "automatic_spatial_dimension_and_topology_checks_with_unmet_conditions_explained",
+      "at_least_one_real_requirement_change",
+      "at_least_one_execution_interruption",
+      "verified_history_correctly_inherited",
+      "completed_pending_failed_adopted_rejected_goals_and_candidates_queryable",
+      "agent_free_rebuild_view_and_export"
+    ],
+    "core_metrics": [
+      "Verified Goal Completion",
+      "Recovery Success",
+      "Change Adaptation",
+      "Editability Retention",
+      "effective autonomous span"
+    ],
+    "anti_padding": "72 hours of process survival, idle waiting or narration does not count as autonomous modeling work."
+  },
+  "evidence_policy": {
+    "reference_visibility": "Planner receives the task intent and public goal criteria, never reference IR, held-out native geometry or oracle result assets.",
+    "detector_gate": "Method IDs in this draft are proposed contracts. Freeze requires a registered detector implementation, schema, source/build hash and demonstrated applicability for every mandatory method; unavailable detectors block acceptance rather than silently dropping criteria.",
+    "seed_gate": "Each change seed is authored and independently checked before freeze. Bind every semantic role to exact Feature/Node IDs, store independent dependency and geometry oracles, then hash them. Do not derive expected sets by calling the invalidation implementation under test.",
+    "invalid_input_semantics": "M18/M19 require rejection with last verified authoritative state unchanged. They do not count as successful new geometry. Their authoritative dirty set is empty; any candidate diagnostic footprint is reported separately.",
+    "incremental_gate": "For valid edits compare exact invalidated sets with goldens, preserve unrelated Feature geometry outputs, and separately rebuild the same final source from scratch in a clean execution namespace. Metadata/STEP names may change without invalidating geometry Features.",
+    "reproduction_gate": "Every successful case has a self-contained evidence bundle. A separate developer must reproduce at least eight successful cases in a clean declared environment from editable source without the original Agent/prompt or manual state repair.",
+    "measurement_separation": "Development unit tests, typed fixtures and local CAD demos are not G1 natural-language benchmark passes. This registry contains no observations or success counts.",
+    "frozen_changes": "After freeze, case/threshold/detector/oracle changes create a new registry version and freeze manifest. Earlier results stay bound to their original hashes and are not silently reclassified."
+  }
+}

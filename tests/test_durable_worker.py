@@ -171,6 +171,153 @@ def make_lease(*, path="runs/input.deep3d", sha256=None, lease_seconds=5):
     }
 
 
+def mechanical_goal(node=None):
+    return {
+        "schema_version": "deep3d.mechanical-acceptance/1",
+        "nodes": {
+            node or str(uuid4()): {
+                "solid_count": 1,
+                "volume_mm3": 1200,
+                "bounds_mm": [0, 0, 0, 24, 10, 5],
+            }
+        },
+    }
+
+
+def test_generic_length_parameter_names_and_optional_frozen_goal_are_supported():
+    lease = make_lease()
+    lease["changes_mm"] = {"block width mm": 24, "offset_x_mm": -3}
+    lease["acceptance"] = mechanical_goal()
+    assert validate_lease(lease) == lease
+    lease["acceptance"] = None
+    assert validate_lease(lease) == lease
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda x: x.update(changes_mm={"bad\nparameter": 24}),
+        lambda x: x.update(changes_mm={f"p{i}": i for i in range(65)}),
+        lambda x: x["acceptance"].update(nodes={}),
+        lambda x: x["acceptance"].update(code="arbitrary Python"),
+        lambda x: x["acceptance"]["nodes"].update(
+            {"../../outside": {"solid_count": 1, "volume_mm3": 1}}
+        ),
+        lambda x: next(iter(x["acceptance"]["nodes"].values())).update(solid_count=True),
+        lambda x: next(iter(x["acceptance"]["nodes"].values())).update(volume_mm3=float("nan")),
+        lambda x: next(iter(x["acceptance"]["nodes"].values())).update(
+            bounds_mm=[0, 0, 0, -1, 1, 1]
+        ),
+    ],
+)
+def test_generic_runtime_goal_remains_strict_and_bounded(mutate):
+    lease = make_lease()
+    lease["acceptance"] = mechanical_goal()
+    mutate(lease)
+    with pytest.raises(WorkerError, match="RUNTIME_PROTOCOL"):
+        validate_lease(lease)
+
+
+@pytest.mark.parametrize("parameter_kind", ["length_mm", "unitless", "missing"])
+def test_worker_generic_goal_and_parameter_edits_form_one_bound_transaction(
+    tmp_path, parameter_kind
+):
+    # This test isolates the transaction adapter; geometry is exercised separately.
+    source = tmp_path / "source.deep3d"
+    source.write_bytes(b"frozen native-input transport fixture")
+    lease = make_lease(
+        path=source.name, sha256="sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    )
+    lease["changes_mm"] = {"block_width_mm": 24}
+    lease["acceptance"] = mechanical_goal()
+    parameter = {
+        "id": str(uuid4()),
+        "name": "block_width_mm",
+        "value": {"kind": parameter_kind, "value": 20},
+    }
+    parameters = {} if parameter_kind == "missing" else {parameter["id"]: parameter}
+    calls, transactions = [], []
+
+    class Client:
+        timeout = 0.1
+
+        def post(self, action, body):
+            calls.append((action, copy.deepcopy(body)))
+            if action == "heartbeat":
+                return copy.deepcopy(lease)
+            return {"receipt": "accepted"}
+
+    class ContractRunner(TaskRunner):
+        def invoke(self, arguments, keeper, directory):
+            if arguments[0] == "show":
+                if Path(arguments[-1]).name == "candidate.deep3d":
+                    return {
+                        "snapshot": {
+                            "revision": {
+                                "id": str(uuid4()),
+                                "parent": lease["source"]["head"]["revision_id"],
+                                "transaction_id": lease["token"]["attempt_id"],
+                            }
+                        },
+                        "materializations": [],
+                    }
+                return {
+                    "snapshot": {
+                        "head": lease["source"]["head"],
+                        "revision": {"id": lease["source"]["head"]["revision_id"]},
+                        "project": {"parameters": parameters, "acceptance": None},
+                    }
+                }
+            if arguments[0] == "candidate":
+                transaction = json.loads(
+                    Path(arguments[arguments.index("--transaction") + 1]).read_text()
+                )
+                transactions.append(transaction)
+                Path(arguments[-1]).write_bytes(b"candidate transport fixture")
+                return {}
+            assert arguments[0] == "evaluate"
+            return {"materialization": "sha256:" + "b" * 64}
+
+    runner = ContractRunner(Client(), tmp_path, Path(sys.executable))
+    original_goal = copy.deepcopy(lease["acceptance"])
+    if parameter_kind != "length_mm":
+        with pytest.raises(WorkerError, match="TASK_PARAMETER_INVALID"):
+            runner.execute(lease)
+        assert not transactions
+        assert calls[-1][0] == "fail"
+    else:
+        assert runner.execute(lease) == {"receipt": "accepted"}
+        commands = transactions[0]["commands"]
+        assert commands == [
+            {
+                "op": "parameter.set",
+                "id": parameter["id"],
+                "value": {"kind": "length_mm", "value": 24},
+            },
+            {"op": "acceptance.set", "acceptance": original_goal},
+        ]
+        assert transactions[0]["id"] == lease["token"]["attempt_id"]
+        assert lease["acceptance"] == original_goal
+
+
+def test_changed_goal_in_heartbeat_revokes_local_execution():
+    lease = make_lease()
+    lease["acceptance"] = mechanical_goal()
+    response = copy.deepcopy(lease)
+    next(iter(response["acceptance"]["nodes"].values()))["volume_mm3"] = 1
+
+    class Client:
+        timeout = 0.1
+
+        def post(self, action, body):
+            return response
+
+    with LeaseKeeper(Client(), lease, threading.Event()) as keeper:
+        assert keeper.lost.wait(1)
+        with pytest.raises(WorkerError, match="RUNTIME_PROTOCOL"):
+            keeper.guard()
+
+
 @pytest.mark.parametrize(
     "mutation",
     [

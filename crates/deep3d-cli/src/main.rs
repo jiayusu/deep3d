@@ -31,6 +31,13 @@ enum Action {
         #[arg(long, default_value = "Flange project")]
         name: String,
     },
+    /// Create a native project from a typed, editable mechanical/flange source specification.
+    Import {
+        #[arg(long)]
+        project: PathBuf,
+        #[arg(long)]
+        spec: PathBuf,
+    },
     /// Reopen the current or an immutable historical revision.
     Show {
         #[arg(long)]
@@ -114,8 +121,8 @@ enum Action {
         project: PathBuf,
         #[arg(long)]
         materialization: String,
-        #[arg(long, default_value = "flange.step")]
-        file: String,
+        #[arg(long)]
+        file: Option<String>,
         #[arg(long)]
         out: PathBuf,
     },
@@ -171,6 +178,10 @@ fn execute(action: Action) -> Result<Value> {
     match action {
         Action::Create { project, name } => {
             json_value(ProjectStore::create(project, &Project::new_flange(&name)?)?)
+        }
+        Action::Import { project, spec } => {
+            let source: Project = read_json(&spec)?;
+            json_value(ProjectStore::create(project, &source)?)
         }
         Action::Show { project, revision } => {
             let store = ProjectStore::open(project)?;
@@ -300,7 +311,19 @@ fn execute(action: Action) -> Result<Value> {
             let record = record.ok_or_else(|| {
                 CoreError::new("MATERIALIZATION_NOT_FOUND", "Unknown materialization")
             })?;
-            let artifact = record.files.get(&file).ok_or_else(|| {
+            let mechanical = store
+                .read_revision(record.revision_id)?
+                .project
+                .acceptance
+                .is_some();
+            let selected = file.unwrap_or_else(|| {
+                if mechanical {
+                    "model.step".into()
+                } else {
+                    "flange.step".into()
+                }
+            });
+            let artifact = record.files.get(&selected).ok_or_else(|| {
                 CoreError::new(
                     "ARTIFACT_NOT_FOUND",
                     "File is not in the verified materialization",

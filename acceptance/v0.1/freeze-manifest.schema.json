@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:deep3d:acceptance-freeze:1",
+  "title": "Acceptance registration freeze manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "registry_version",
+    "registry_sha256",
+    "frozen_at",
+    "freeze_actor",
+    "source_commit",
+    "runner_build_id",
+    "verifier_build_ids",
+    "precision_profile_sha256",
+    "case_hashes",
+    "change_seed_assets",
+    "oracle_manifest_sha256",
+    "oracle_access_policy",
+    "benchmark_machine",
+    "environment_manifest_sha256",
+    "amendment_of"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "deep3d.acceptance-freeze/1"
+    },
+    "registry_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "registry_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "frozen_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "freeze_actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "runner_build_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verifier_build_ids": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    },
+    "precision_profile_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "case_hashes": {
+      "type": "object",
+      "minProperties": 35,
+      "maxProperties": 35,
+      "propertyNames": {
+        "pattern": "^(C(0[1-9]|10)|M(0[1-9]|1[0-9]|20)|R0[1-5])$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    },
+    "change_seed_assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seed_asset_id",
+          "native_source_sha256",
+          "role_feature_binding_sha256",
+          "dependency_oracle_sha256",
+          "independent_preparation_record_sha256"
+        ],
+        "properties": {
+          "seed_asset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "native_source_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "role_feature_binding_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "dependency_oracle_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          },
+          "independent_preparation_record_sha256": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      }
+    },
+    "oracle_manifest_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "oracle_access_policy": {
+      "const": "verifier_only_planner_has_no_reference_ir_or_expected_geometry_assets"
+    },
+    "benchmark_machine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "machine_id",
+        "os",
+        "architecture",
+        "cpu",
+        "logical_cpus",
+        "memory_bytes",
+        "power_policy",
+        "compiler",
+        "build_profile",
+        "process_limits",
+        "clock"
+      ],
+      "properties": {
+        "machine_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "os": {
+          "type": "string",
+          "minLength": 1
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cpu": {
+          "type": "string",
+          "minLength": 1
+        },
+        "logical_cpus": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "memory_bytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "power_policy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "compiler": {
+          "type": "string",
+          "minLength": 1
+        },
+        "build_profile": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_limits": {
+          "type": "object"
+        },
+        "clock": {
+          "const": "monotonic_high_resolution"
+        }
+      }
+    },
+    "environment_manifest_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "amendment_of": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

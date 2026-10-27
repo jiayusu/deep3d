@@ -363,6 +363,174 @@ pub(super) fn metadata_materialization(
     )
 }
 
+fn replace_metadata_artifact(
+    record: &mut Materialization,
+    blobs: &mut BTreeMap<String, Vec<u8>>,
+    name: &str,
+    bytes: Vec<u8>,
+) -> String {
+    let hash = digest_bytes(&bytes);
+    record.files.insert(
+        name.into(),
+        ArtifactRef {
+            sha256: hash.clone(),
+            size_bytes: bytes.len() as u64,
+        },
+    );
+    blobs.insert(hash.clone(), bytes);
+    hash
+}
+
+// Like metadata_materialization, these synthetic bytes test the storage protocol,
+// not geometry validity. The real rigid-stack source supplies shared part identities.
+fn mechanical_metadata_materialization(
+    snapshot: &Snapshot,
+) -> (Materialization, BTreeMap<String, Vec<u8>>) {
+    let plan = snapshot.project.compile(snapshot.revision.id).unwrap();
+    assert!(matches!(
+        plan.acceptance,
+        core_domain::Acceptance::Mechanical(_)
+    ));
+    let (mut record, mut blobs) = metadata_materialization(snapshot);
+    record.files.remove("flange.brep");
+    record.files.remove("flange.step");
+    let aggregate_hash = replace_metadata_artifact(
+        &mut record,
+        &mut blobs,
+        "model.brep",
+        b"protocol-fixture-mechanical-aggregate".to_vec(),
+    );
+    let step_hash = replace_metadata_artifact(
+        &mut record,
+        &mut blobs,
+        "model.step",
+        b"protocol-fixture-mechanical-step".to_vec(),
+    );
+    for (node, hash) in &record.node_outputs {
+        record.files.insert(
+            format!("nodes/{node}.brep"),
+            ArtifactRef {
+                sha256: hash.clone(),
+                size_bytes: blobs[hash].len() as u64,
+            },
+        );
+    }
+    let features: BTreeMap<_, _> = plan.features.iter().map(|f| (f.id, f)).collect();
+    let mut instances = BTreeMap::new();
+    let mut parts: BTreeMap<Uuid, serde_json::Value> = BTreeMap::new();
+    for (node, feature) in &plan.outputs {
+        let mut part = *feature;
+        while features[&part].op == "shape.transform@1" {
+            part = features[&part].inputs["shape"];
+        }
+        let item = &plan.scene[node];
+        instances.insert(
+            *node,
+            json!({"name":item.name,"parent":item.parent,"feature_id":feature,"part_id":part}),
+        );
+        let definition = parts.entry(part).or_insert_with(
+            || json!({"part_id":part,"name":features[&part].name,"quantity":0,"instances":[]}),
+        );
+        definition["quantity"] = json!(definition["quantity"].as_u64().unwrap() + 1);
+        definition["instances"]
+            .as_array_mut()
+            .unwrap()
+            .push(json!(node));
+    }
+    let assembly_hash = replace_metadata_artifact(
+        &mut record,
+        &mut blobs,
+        "assembly.json",
+        serde_json::to_vec(&json!({
+            "schema_version":"deep3d.rigid-assembly/1",
+            "project_id":plan.project_id,"revision_id":plan.revision_id,
+            "scene":plan.scene,"instances":instances,"bom":parts.values().collect::<Vec<_>>()
+        }))
+        .unwrap(),
+    );
+    for (name, stage) in [("verify-brep.json", "native"), ("verify-step.json", "step")] {
+        let report = json!({
+            "schema_version":"deep3d.mechanical-verification/1", "status":"pass", "stage":stage,
+            "expected_spec":plan.acceptance,"precision_profile":plan.precision,
+            "input_artifact_sha256":if stage == "native" { &aggregate_hash } else { &step_hash },
+            "input_node_artifact_sha256":if stage == "native" { json!(record.node_outputs) } else { json!({}) },
+            "input_assembly_artifact_sha256":if stage == "native" { json!(assembly_hash) } else { json!(null) },
+            "validator_id":"deep3d.mechanical@1",
+            "validator_source_sha256":record.engine["verifier_source_sha256"],
+            "checks":[{"id":"test.metadata_protocol_only","status":"pass"}],
+        });
+        replace_metadata_artifact(
+            &mut record,
+            &mut blobs,
+            name,
+            serde_json::to_vec(&report).unwrap(),
+        );
+    }
+    let mut referenced: BTreeSet<_> = record
+        .files
+        .values()
+        .map(|artifact| artifact.sha256.clone())
+        .collect();
+    referenced.insert(record.plan_hash.clone());
+    blobs.retain(|hash, _| referenced.contains(hash));
+    (record, blobs)
+}
+
+#[test]
+fn changed_mechanical_instances_or_bom_cannot_reuse_original_verification() {
+    for mutation in ["instances", "bom"] {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("mechanical-protocol.deep3d");
+        let project: Project = serde_json::from_str(include_str!(
+            "../../../fixtures/mechanical/rigid-stack.json"
+        ))
+        .unwrap();
+        let snapshot = ProjectStore::create(&path, &project).unwrap();
+        let store = ProjectStore::open(path).unwrap();
+        let (record, blobs) = mechanical_metadata_materialization(&snapshot);
+        store
+            .attach_materialization(record.clone(), blobs.clone())
+            .unwrap();
+        let before = fs::read(store.path()).unwrap();
+        let mut changed_record = record.clone();
+        let mut changed_blobs = blobs;
+        let original_report = record.files["verify-brep.json"].clone();
+        let mut assembly: serde_json::Value =
+            serde_json::from_slice(&changed_blobs[&record.files["assembly.json"].sha256]).unwrap();
+        if mutation == "instances" {
+            assert_eq!(assembly["instances"].as_object().unwrap().len(), 6);
+            assembly["instances"] = json!({});
+        } else {
+            assert_eq!(assembly["bom"].as_array().unwrap().len(), 2);
+            assembly["bom"][0]["quantity"] = json!(999);
+        }
+        replace_metadata_artifact(
+            &mut changed_record,
+            &mut changed_blobs,
+            "assembly.json",
+            serde_json::to_vec(&assembly).unwrap(),
+        );
+        assert_eq!(changed_record.files["verify-brep.json"], original_report);
+        assert_ne!(
+            changed_record.files["assembly.json"],
+            record.files["assembly.json"]
+        );
+        assert_eq!(
+            store
+                .attach_materialization(changed_record, changed_blobs)
+                .unwrap_err()
+                .code,
+            "MATERIALIZATION_INVALID",
+            "{mutation}"
+        );
+        assert_eq!(fs::read(store.path()).unwrap(), before, "{mutation}");
+        let reopened = ProjectStore::open(store.path()).unwrap();
+        let accepted = reopened.materializations(snapshot.revision.id).unwrap();
+        assert_eq!(accepted.len(), 1, "{mutation}");
+        assert_eq!(accepted[0].1, record, "{mutation}");
+    }
+}
+
 #[test]
 fn materializations_are_self_contained_and_can_attach_to_an_old_revision() {
     let (_directory, store, original) = fixture();

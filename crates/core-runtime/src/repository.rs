@@ -145,6 +145,7 @@ fn token_valid(token: &LeaseToken) -> Result<()> {
 }
 
 fn lease_from_row(row: &Row, lease_seconds: i32) -> Result<Lease> {
+    let task: TaskSpec = decoded(row.get("task_spec"))?;
     Ok(Lease {
         token: LeaseToken {
             run_id: row.get("run_id"),
@@ -156,6 +157,7 @@ fn lease_from_row(row: &Row, lease_seconds: i32) -> Result<Lease> {
         },
         source: decoded(row.get("source"))?,
         changes_mm: decoded(row.get("changes_mm"))?,
+        acceptance: task.acceptance,
         lease_until_unix_ms: row.get("lease_ms"),
         deadline_unix_ms: row.get("deadline_ms"),
         heartbeat_after_seconds: f64::from(lease_seconds) / 3.0,
@@ -169,9 +171,11 @@ fn read_lease(
 ) -> Result<Lease> {
     let row = transaction
         .query_one(
-            "SELECT *, (extract(epoch FROM lease_until)*1000)::bigint AS lease_ms,
-         (extract(epoch FROM deadline)*1000)::bigint AS deadline_ms FROM attempts
-         WHERE run_id=$1 AND task_key=$2 AND attempt_id=$3",
+            "SELECT a.*, t.spec AS task_spec,
+         (extract(epoch FROM a.lease_until)*1000)::bigint AS lease_ms,
+         (extract(epoch FROM a.deadline)*1000)::bigint AS deadline_ms FROM attempts a
+         JOIN tasks t ON t.run_id=a.run_id AND t.task_key=a.task_key
+         WHERE a.run_id=$1 AND a.task_key=$2 AND a.attempt_id=$3",
             &[&token.run_id, &token.task_key, &token.attempt_id],
         )
         .map_err(db_error)?;
