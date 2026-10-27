@@ -1,0 +1,215 @@
+{
+  "schema_version": "deep3d.progress/1",
+  "updated_at": "2026-10-27T15:41:44+00:00",
+  "project": "deep3d",
+  "release": "0.3.0",
+  "source_commit": "26162a9",
+  "target_date": "2026-11-01",
+  "headline": "工程基础已建立，目标验收尚未达标。",
+  "focus": "接通目标版本与已验证提交",
+  "focus_stage": "03",
+  "focus_detail": "把用户要求、工程源、独立证据和公开版本绑定起来，让任务结果成为用户能够取得的可靠成果。",
+  "autonomy": {
+    "status": "failed",
+    "label": "尚未启动",
+    "detail": "G6 ≥2 小时 / LH-001 72 小时"
+  },
+  "next_actions": [
+    "实现 GoalRevision / PlanRevision，保存要求来源、验收条件与变更。",
+    "实现 VerifiedCommit / PublicHead，候选通过独立验证后才推进公开版本。",
+    "随后落地属性级失效、实际几何复用和全量重算对照。"
+  ],
+  "gates": [
+    {
+      "id": "G1",
+      "title": "自然语言到可验收模型",
+      "status": "failed",
+      "threshold": "10 类任务，至少 8 个完整通过；声称完成的实体全部有效。",
+      "current": "通用 CAD 已具备，目标到公开交付的完整链尚未接通。",
+      "missing": "目标版本、规划入口、独立检测器与冻结案例执行。"
+    },
+    {
+      "id": "G2",
+      "title": "可编辑源与无 Agent 重建",
+      "status": "insufficient_evidence",
+      "threshold": "10 份源资产完整；至少 8 个成功对象可修改参数并重建。",
+      "current": "3 类工程回归源可重开；已检查无 Agent 参数编辑与旧版本保留。",
+      "missing": "10 份正式交付与至少 8 例预注册编辑记录。"
+    },
+    {
+      "id": "G3",
+      "title": "真实增量与结果一致",
+      "status": "failed",
+      "threshold": "20 个变更至少 18 个正确；依赖准确，结果与全量重算等价。",
+      "current": "已有保守依赖闭包，当前 Worker 仍全量求值。",
+      "missing": "属性级读写集、ActionCache、局部执行与独立全量对照。"
+    },
+    {
+      "id": "G4",
+      "title": "大图失效传播性能",
+      "status": "insufficient_evidence",
+      "threshold": "1,000 节点，P95 <100 ms；准确率 100%，排除实际 CAD。",
+      "current": "尚未按冻结机器、图种子和采样协议进行测量。",
+      "missing": "独立依赖 oracle、生产入口基准与原始时长记录。"
+    },
+    {
+      "id": "G5",
+      "title": "中断与重复执行恢复",
+      "status": "failed",
+      "threshold": "5 类场景全部恢复；无重复发布，未验证候选不得公开。",
+      "current": "已有数据库租约、撤权、重试和回执恢复基础。",
+      "missing": "正式公开提交边界与 5 类冻结场景的完整证据。"
+    },
+    {
+      "id": "G6",
+      "title": "两小时自主建模",
+      "status": "failed",
+      "threshold": "实际 ≥2 小时，≥10 次真实几何变化的验证提交，含需求变更。",
+      "current": "未启动符合本契约的自主验收任务。",
+      "missing": "持续目标协调、正式验证提交、实际跨度与人工介入记录。"
+    },
+    {
+      "id": "G7",
+      "title": "交付与干净环境复现",
+      "status": "failed",
+      "threshold": "成功案例有完整证据包；另一开发者干净复现至少 8 个。",
+      "current": "源代码、协议、工程样例和复查方法已保存。",
+      "missing": "统一交付包、独立复现及最终项目许可与依赖分发边界。"
+    }
+  ],
+  "stages": [
+    {
+      "id": "01",
+      "title": "可编辑 CAD 基础",
+      "status": "passed",
+      "detail": "约束草图、实体特征、刚性装配；保存、重开、修改、重建与 STEP。",
+      "scope": "限定操作域的工程回归通过；完整工业资格未建立。",
+      "href": "docs/cad-capabilities.md"
+    },
+    {
+      "id": "02",
+      "title": "持久并发执行基础",
+      "status": "passed",
+      "detail": "固定任务图、多 Worker、租约、控制撤权与私有候选恢复。",
+      "scope": "固定 DAG 的运行基础；不等于完整长程自主任务。",
+      "href": "docs/durable-runtime.md"
+    },
+    {
+      "id": "03",
+      "title": "目标与公开验证版本",
+      "status": "failed",
+      "detail": "Goal / Plan 版本、独立条件、VerifiedCommit 与公开 Head。",
+      "scope": "当前下一实施单元。",
+      "href": "docs/system-design-v1.md"
+    },
+    {
+      "id": "04",
+      "title": "真正的局部修改",
+      "status": "failed",
+      "detail": "属性读写集、分类失效、几何缓存、变更解释及全量对照。",
+      "scope": "已有设计，尚未接入实际增量执行。",
+      "href": "docs/system-design-v1.md"
+    },
+    {
+      "id": "05",
+      "title": "目标驱动持续建模",
+      "status": "failed",
+      "detail": "自然语言合同、可替换规划者、持续阶段推进与需求适应。",
+      "scope": "早期 Agent 工具循环不能替代完整目标闭环。",
+      "href": "docs/agent-loop.md"
+    },
+    {
+      "id": "06",
+      "title": "验收、交付与长程",
+      "status": "failed",
+      "detail": "冻结 G1～G7、统一成果包、独立复现；再执行 LH-001。",
+      "scope": "10 / 20 / 5 案例仍为草案，未执行正式验收。",
+      "href": "docs/acceptance-protocol-v0.1.md"
+    }
+  ],
+  "evidence": [
+    {
+      "value": "32",
+      "label": "Windows CAD 集成",
+      "detail": "原生工程、计划求值、编辑与历史保留。",
+      "status": "passed",
+      "href": "qualification/mechanical/README.md"
+    },
+    {
+      "value": "22",
+      "label": "Rust 存储协议",
+      "detail": "含实例 / BOM 篡改拒绝与原工程保护。",
+      "status": "passed",
+      "href": "qualification/mechanical/README.md"
+    },
+    {
+      "value": "108",
+      "label": "Linux CAD 隔离回归",
+      "detail": "实体、草图、内核与既有法兰验证器。",
+      "status": "passed",
+      "href": "qualification/mechanical/README.md"
+    },
+    {
+      "value": "4",
+      "label": "验收 JSON Schema",
+      "detail": "结构检查通过；注册草案尚未冻结。",
+      "status": "passed",
+      "href": "docs/acceptance-protocol-v0.1.md"
+    }
+  ],
+  "blockers": [
+    {
+      "title": "公开成果的权威边界尚未接齐",
+      "detail": "私有任务完成还不会推进正式用户分支，需接通目标、证据与公开提交。",
+      "href": "docs/current-state.md"
+    },
+    {
+      "title": "缺少真正增量执行与独立对照",
+      "detail": "识别依赖后仍全量构建，尚不能通过 S4 / G3。",
+      "href": "docs/system-design-v1.md"
+    },
+    {
+      "title": "正式验收与分发条件仍缺证据",
+      "detail": "独立检测器、干净复现、根项目许可与草图依赖分发边界尚待落实。",
+      "href": "docs/third-party-dependencies.md"
+    }
+  ],
+  "history": [
+    {
+      "date": "2026-10-27",
+      "title": "建立项目进度看板",
+      "detail": "新增离线 HTML、结构化状态源和生成器；桌面 / 手机布局、状态筛选与证据链接检查通过；每次任务收尾更新已写入 AGENTS.md。",
+      "href": "AGENTS.md"
+    },
+    {
+      "date": "2026-10-27",
+      "title": "机械 CAD 0.3.0 与整套系统设计",
+      "detail": "接通通用机械工程、约束草图、装配与证据绑定；落成目标契约及验收草案。",
+      "href": "https://github.com/jiayusu/deep3d/commit/26162a9"
+    },
+    {
+      "date": "2026-10-27",
+      "title": "重建系统数学模型",
+      "detail": "区分工程规范、几何求值、验收、执行权与恢复。",
+      "href": "https://github.com/jiayusu/deep3d/commit/d512371"
+    },
+    {
+      "date": "2026-10-27",
+      "title": "持久并发任务运行时",
+      "detail": "PostgreSQL 保存固定 DAG、租约和回执，多 Worker 异步执行。",
+      "href": "https://github.com/jiayusu/deep3d/commit/f729193"
+    },
+    {
+      "date": "2026-10-27",
+      "title": "首个受控 Agent 工具循环",
+      "detail": "候选隔离、独立验证、版本检查与检查点恢复。",
+      "href": "https://github.com/jiayusu/deep3d/commit/98eb004"
+    },
+    {
+      "date": "2026-10-27",
+      "title": "Rust 工程内核与 OCCT 基础",
+      "detail": "原生源、参数、Feature DAG、不可变版本和真实 B-Rep / STEP。",
+      "href": "https://github.com/jiayusu/deep3d/commit/2f867e8"
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 # deep3d
 
+[打开项目进度看板](progress.html)：单文件 HTML，可离线打开。每次实质任务收尾后更新，刷新即可查看已验证能力、验收状态、证据、阻碍和下一步。维护规则见 [AGENTS.md](AGENTS.md)；修改 `docs/progress.json` 后运行 `.venv\Scripts\python.exe scripts/update_progress.py`，再加 `--check` 检查生成结果。
+
 以 [目标状态契约 v1.0](docs/target-contract-v1.md) 为验收依据；[整套系统设计](docs/system-design-v1.md)定义目标架构，[当前状态](docs/current-state.md)列出真实实现与缺口。**V0.1 尚未达标，未启动或证明两小时/72 小时自主验收任务。**
 
 面向工业精密 CAD 的开源 Agent 建模系统，已实现 Rust 原生工程内核、确定性 CAD 执行与持久并发任务运行时。

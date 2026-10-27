@@ -2,6 +2,8 @@
 
 对照基准：[目标状态契约 v1.0](target-contract-v1.md)。设计方案：[系统设计 v1.0](system-design-v1.md)。本文件是实现范围盘点，不是正式冻结验收的一次观测记录。
 
+可视化入口：[项目进度看板](../progress.html)。每次实质任务收尾同步更新，更新规则见根目录 [AGENTS.md](../AGENTS.md)。
+
 ## 已有的可运行基础
 
 - Rust 保存类型化参数、Scene、Feature DAG、命令和不可变版本，原生工程可以重开编辑。

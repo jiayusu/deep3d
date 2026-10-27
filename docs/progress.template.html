@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="deep3d 项目进度快照：已有能力、验收门槛、证据、阻碍与任务记录。">
+  <title>deep3d · 项目进度</title>
+  <style>
+    :root { --bg:#f5f5f2; --paper:#fff; --ink:#19241f; --muted:#667169; --line:#dfe4de; --green:#236345; --soft:#e9f3ec; --red:#a54235; --red-bg:#fbefec; --amber:#92661a; --amber-bg:#fcf5e5; --nav:#152b22; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; scroll-padding-top:28px; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:Inter,"Segoe UI","Microsoft YaHei",system-ui,sans-serif; font-size:14px; line-height:1.65; }
+    a { color:var(--green); text-decoration:none; }
+    a:hover { text-decoration:underline; text-underline-offset:4px; }
+    button,a,summary { -webkit-tap-highlight-color:transparent; }
+    button:focus-visible,a:focus-visible,summary:focus-visible { outline:3px solid #95b8ff; outline-offset:4px; border-radius:4px; }
+    button { font:inherit; cursor:pointer; }
+    h1,h2,h3,p { margin:0; }
+    .sidebar { width:224px; background:var(--nav); color:#edf3ed; position:fixed; inset:0 auto 0 0; display:flex; flex-direction:column; padding:34px 24px 24px; z-index:5; }
+    .brand { display:flex; align-items:center; gap:10px; font-size:25px; font-weight:650; letter-spacing:-1px; color:inherit; }
+    .brand:hover { text-decoration:none; }
+    .brand-mark { width:29px; height:29px; border:1px solid #83b299; display:grid; place-items:center; transform:rotate(-8deg); border-radius:7px; }
+    .brand-mark:before { content:""; width:12px; height:12px; border:1.5px solid #a6d4b9; transform:rotate(8deg); }
+    .brand-caption { margin:10px 0 35px; color:#9fb4a7; font-size:11px; letter-spacing:1.5px; }
+    .nav-label { font-size:10px; color:#8da597; letter-spacing:2px; margin-bottom:10px; }
+    nav { display:grid; gap:7px; }
+    nav a { padding:10px 13px; border-radius:7px; color:#baccc0; display:flex; align-items:center; gap:12px; font-size:13px; }
+    nav a:hover { background:#253e31; text-decoration:none; color:white; }
+    nav a:first-child { background:#2b4738; color:#f5faf6; }
+    .nav-symbol { width:16px; font-size:16px; line-height:1; opacity:.8; }
+    .sidebar-bottom { margin-top:auto; font-size:11px; color:#a2b7a9; border-top:1px solid #34503e; padding-top:20px; }
+    .snapshot-mark { display:flex; align-items:center; gap:7px; margin-bottom:5px; color:#dce9df; }
+    .snapshot-mark i { width:6px; height:6px; background:#b5c6ba; border-radius:50%; }
+    .sidebar-bottom a { color:#d9e8de; display:inline-block; margin-top:12px; }
+    main { margin-left:224px; padding:28px 42px 32px; max-width:1660px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:18px; color:var(--muted); font-size:12px; margin-bottom:30px; }
+    .breadcrumb { color:#7c867d; }
+    .breadcrumb span { color:var(--ink); margin-left:9px; }
+    .refresh { background:var(--paper); border:1px solid var(--line); border-radius:6px; color:var(--ink); padding:7px 12px; white-space:nowrap; }
+    .timestamp { display:flex; gap:13px; align-items:center; flex-wrap:wrap; }
+    .eyebrow { text-transform:uppercase; letter-spacing:2px; color:var(--green); font-size:11px; font-weight:650; margin-bottom:10px; }
+    .hero-heading { display:flex; justify-content:space-between; gap:25px; align-items:flex-end; }
+    h1 { font-size:clamp(27px,2.75vw,39px); letter-spacing:-1.2px; font-weight:650; line-height:1.35; }
+    .hero-description { color:var(--muted); margin-top:13px; max-width:740px; }
+    .release { flex:none; color:var(--muted); border:1px solid var(--line); padding:5px 11px; border-radius:99px; font-size:11px; white-space:nowrap; margin-bottom:3px; }
+    .overview { display:grid; grid-template-columns:1.15fr 1fr 1fr; gap:16px; margin-top:27px; }
+    .metric { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:22px 24px 18px; min-height:158px; }
+    .metric.primary { background:#eef3ed; border-color:#cfdccc; }
+    .metric-label { font-size:12px; color:var(--muted); display:flex; justify-content:space-between; gap:10px; }
+    .metric-number { font-size:36px; letter-spacing:-1px; line-height:1.2; font-weight:600; margin:12px 0 9px; }
+    .metric-number small { color:#839082; font-size:19px; font-weight:400; margin-left:3px; }
+    .metric-number.words { font-size:26px; margin-top:17px; margin-bottom:12px; letter-spacing:0; }
+    .metric-note { font-size:11px; color:var(--muted); }
+    .status-count { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .status-count span { display:inline-flex; align-items:center; gap:5px; }
+    .dot { width:5px; height:5px; border-radius:50%; background:var(--red); display:inline-block; }
+    .dot.amber { background:var(--amber); }
+    .badge { display:inline-flex; align-items:center; gap:5px; border-radius:5px; padding:3px 8px; font-size:10px; font-weight:600; line-height:1.5; white-space:nowrap; }
+    .badge i { width:4px; height:4px; border-radius:50%; background:currentColor; }
+    .badge.passed { background:var(--soft); color:var(--green); }
+    .badge.failed { background:var(--red-bg); color:var(--red); }
+    .badge.insufficient_evidence { background:var(--amber-bg); color:var(--amber); }
+    .focus { display:grid; grid-template-columns:1fr auto; gap:18px; align-items:center; border-left:3px solid #719576; background:#e9eee7; border-radius:0 8px 8px 0; padding:18px 22px; margin:19px 0 34px; }
+    .focus-label { color:var(--green); font-size:10px; letter-spacing:1px; font-weight:650; margin-bottom:3px; }
+    .focus h2 { font-size:17px; font-weight:600; }
+    .focus p { color:var(--muted); font-size:12px; margin-top:4px; max-width:760px; }
+    .focus a { font-size:12px; white-space:nowrap; }
+    section { margin-top:34px; }
+    .section-heading { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:17px; }
+    .section-heading h2 { font-size:19px; font-weight:600; letter-spacing:-.3px; }
+    .section-heading p { font-size:11px; color:var(--muted); margin-top:4px; }
+    .section-index { color:#849184; font:11px ui-monospace,SFMono-Regular,Consolas,monospace; margin-right:9px; }
+    .section-heading>a { font-size:11px; white-space:nowrap; }
+    .stages { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; }
+    .stage { background:var(--paper); border:1px solid var(--line); border-radius:9px; padding:18px 19px 16px; display:flex; flex-direction:column; }
+    .stage.current { border-color:#6f977c; box-shadow:inset 0 3px 0 #6f977c; }
+    .stage-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    .stage-number { font:16px ui-monospace,SFMono-Regular,Consolas,monospace; color:#8d998d; }
+    .stage h3 { font-size:14px; font-weight:600; }
+    .stage p { color:var(--muted); font-size:12px; margin-top:8px; flex:1; }
+    .stage-foot { display:flex; flex-direction:column; gap:10px; font-size:10px; color:#788477; margin-top:16px; padding-top:12px; border-top:1px solid #edf0eb; }
+    .stage-foot a { align-self:flex-start; }
+    .gates-box { background:var(--paper); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    .filterbar { padding:15px 19px; display:flex; gap:6px; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+    .filter { background:transparent; color:var(--muted); border:1px solid transparent; font-size:11px; padding:5px 10px; border-radius:5px; }
+    .filter[aria-pressed="true"] { background:#eef2ec; border-color:#dce4d9; color:var(--ink); font-weight:600; }
+    .filter span { margin-left:5px; opacity:.6; }
+    .gate { padding:18px 22px; display:grid; grid-template-columns:34px 1fr; gap:10px; border-bottom:1px solid #e9ede7; }
+    .gate:last-of-type { border-bottom:0; }
+    .gate[hidden] { display:none; }
+    .gate-id { color:#899486; font:12px ui-monospace,SFMono-Regular,Consolas,monospace; padding-top:3px; }
+    .gate-heading { display:flex; justify-content:space-between; align-items:center; gap:15px; }
+    .gate h3 { font-size:13px; font-weight:600; }
+    .gate p { font-size:11px; color:var(--muted); margin-top:7px; }
+    .gate p.threshold { color:#879083; font-size:10px; margin-top:4px; }
+    details { font-size:10px; margin-top:9px; color:var(--green); }
+    summary { cursor:pointer; width:fit-content; }
+    details a { display:inline-block; margin-top:8px; }
+    .empty { padding:28px; color:var(--muted); font-size:12px; text-align:center; }
+    .evidence-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:13px; }
+    .evidence-card { padding:19px; background:white; border:1px solid var(--line); border-radius:9px; }
+    .evidence-number { font-size:32px; font-weight:550; line-height:1.2; letter-spacing:-1px; color:var(--green); }
+    .evidence-number span { font-size:10px; font-weight:400; margin-left:8px; color:var(--muted); letter-spacing:0; }
+    .evidence-card h3 { font-size:12px; font-weight:600; margin-top:13px; }
+    .evidence-card p { font-size:10px; color:var(--muted); margin:6px 0 12px; }
+    .evidence-card a { font-size:10px; }
+    .columns { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+    .columns section { min-width:0; }
+    .panel { background:white; border:1px solid var(--line); border-radius:9px; padding:2px 20px; }
+    .blocker { display:flex; gap:13px; padding:18px 0; border-bottom:1px solid #edf0eb; }
+    .blocker:last-child { border:0; }
+    .blocker-index { font:11px ui-monospace,SFMono-Regular,Consolas,monospace; color:#b69764; padding-top:3px; }
+    .blocker h3 { font-size:12px; font-weight:600; }
+    .blocker p { color:var(--muted); font-size:11px; margin:6px 0; }
+    .blocker a { font-size:10px; }
+    .next-panel { padding:19px 22px; }
+    .next-panel ol { padding:0 0 0 17px; margin:0; color:var(--muted); font-size:12px; }
+    .next-panel li { padding:0 0 15px 5px; }
+    .next-panel li:last-child { padding-bottom:0; }
+    .long-run { margin-top:17px; padding:15px 0 0; border-top:1px solid var(--line); font-size:11px; color:var(--muted); }
+    .long-run strong { color:var(--ink); font-weight:600; }
+    .history { background:white; border:1px solid var(--line); border-radius:9px; padding:5px 23px; }
+    .history-item { display:grid; grid-template-columns:15px 92px 1fr; gap:12px; padding:18px 0; position:relative; }
+    .history-item:before { content:""; position:absolute; left:4px; top:30px; bottom:-24px; width:1px; background:#e3e9df; }
+    .history-item:last-child:before { display:none; }
+    .timeline-dot { width:9px; height:9px; border:2px solid #a9b8a4; background:white; border-radius:50%; margin-top:5px; z-index:1; }
+    .history-item:first-child .timeline-dot { background:var(--green); border-color:var(--green); }
+    .history time { font:10px ui-monospace,SFMono-Regular,Consolas,monospace; color:#8b9587; padding-top:4px; }
+    .history h3 { font-size:12px; font-weight:550; }
+    .history p { color:var(--muted); font-size:11px; margin-top:4px; }
+    footer { color:#8a9385; font-size:10px; border-top:1px solid var(--line); margin-top:30px; padding-top:18px; display:flex; justify-content:space-between; gap:15px; flex-wrap:wrap; }
+    footer a { color:#75836f; }
+    @media(min-width:1700px) { main { margin-right:auto; margin-left:calc(224px + (100vw - 1700px)/2); } }
+    @media(max-width:1150px) { .sidebar { width:192px; padding:28px 18px; } main { margin-left:192px; padding:25px 27px; } .overview { gap:10px; } .metric { padding:18px; } .hero-heading { align-items:flex-start; } .release { display:none; } .evidence-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media(max-width:850px) { .sidebar { position:relative; width:auto; padding:20px 24px 12px; } .brand { font-size:23px; } .brand-caption,.nav-label,.sidebar-bottom { display:none; } nav { display:flex; overflow:auto; gap:5px; margin-top:15px; } nav a { flex:none; padding:8px 11px; font-size:11px; } .nav-symbol { display:none; } main { margin:0; padding:24px; } .topbar { margin-bottom:23px; } .stages { grid-template-columns:repeat(2,minmax(0,1fr)); } .columns { grid-template-columns:1fr; gap:0; } .columns section { margin-top:30px; } }
+    @media(max-width:540px) { .sidebar { padding:17px 18px 10px; } main { padding:18px 17px 26px; } .topbar { align-items:flex-start; } .breadcrumb { display:none; } .timestamp { width:100%; justify-content:space-between; gap:6px; font-size:10px; } .refresh { font-size:10px; padding:6px 9px; } h1 { font-size:28px; letter-spacing:-.7px; } .hero-description { font-size:12px; } .overview { grid-template-columns:1fr 1fr; gap:10px; margin-top:22px; } .metric { padding:17px; min-height:136px; } .metric.primary { grid-column:1/-1; min-height:126px; } .metric.primary .metric-number { margin:7px 0; } .metric-number { font-size:32px; } .metric-number.words { font-size:19px; } .metric-note { font-size:10px; } .focus { grid-template-columns:1fr; gap:10px; padding:16px; margin-bottom:25px; } .focus h2 { font-size:16px; } .focus a { font-size:11px; } .section-heading { gap:10px; align-items:flex-start; } .section-heading h2 { font-size:17px; } .section-heading>a { font-size:10px; } .stages { grid-template-columns:1fr; } .stage { padding:17px; } .stage-top { margin-bottom:10px; } .evidence-grid { gap:10px; } .evidence-card { padding:15px; } .evidence-number { font-size:29px; } .evidence-number span { display:block; margin:3px 0 0; } .gate { grid-template-columns:25px 1fr; padding:16px 13px; gap:7px; } .gate-heading { align-items:flex-start; gap:6px; } .gate h3 { font-size:12px; } .filterbar { padding:12px 10px; gap:1px; } .filter { padding:5px 8px; font-size:10px; } .history { padding:3px 15px; } .history-item { grid-template-columns:12px 1fr; gap:6px 10px; } .history time { grid-column:2; } .history-item>div { grid-column:2; } .timeline-dot { grid-row:1/3; } .history-item:before { left:4px; top:29px; } }
+    @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+    @media print { .sidebar,.refresh,.filterbar { display:none; } main { margin:0; padding:0; } body { background:white; } .gate[hidden] { display:grid; } .stage,.gate,.evidence-card { break-inside:avoid; } a { color:inherit; } }
+  </style>
+</head>
+<body>
+  <!-- Generated by scripts/update_progress.py. Edit docs/progress.json, not this file. -->
+  <aside class="sidebar">
+    <a href="#overview" class="brand" aria-label="deep3d 项目进度首页"><span class="brand-mark" aria-hidden="true"></span>deep3d<span style="color:#8cb497">.</span></a>
+    <p class="brand-caption">AGENT-NATIVE ENGINEERING</p>
+    <p class="nav-label">PROJECT WORKSPACE</p>
+    <nav aria-label="看板导航">
+      <a href="#overview"><span class="nav-symbol" aria-hidden="true">▦</span>项目概览</a>
+      <a href="#roadmap"><span class="nav-symbol" aria-hidden="true">⌁</span>能力与阶段</a>
+      <a href="#acceptance"><span class="nav-symbol" aria-hidden="true">⊡</span>验收门槛</a>
+      <a href="#evidence"><span class="nav-symbol" aria-hidden="true">≡</span>验证与证据</a>
+      <a href="#history"><span class="nav-symbol" aria-hidden="true">◷</span>任务记录</a>
+    </nav>
+    <div class="sidebar-bottom"><div class="snapshot-mark"><i aria-hidden="true"></i>任务收尾快照</div><p>每次实质任务结束后更新。<br>本页不是运行中的服务遥测。</p><a href="docs/system-design-v1.md">系统设计 ↗</a><br><a href="https://github.com/jiayusu/deep3d">GitHub 仓库 ↗</a></div>
+  </aside>
+  <main id="overview">
+    <div class="topbar"><div class="breadcrumb">Workspace /<span>项目进度</span></div><div class="timestamp"><time datetime="{{UPDATED_ISO}}">更新于 {{UPDATED}}</time><button class="refresh" id="refresh" type="button">↻ 刷新快照</button></div></div>
+    <header><div class="eyebrow">PROJECT STATUS / 当前事实</div><div class="hero-heading"><h1>{{HEADLINE}}</h1><span class="release">CAD {{RELEASE}}</span></div><p class="hero-description">从自然语言目标，持续生成有效、可编辑、可复现的三维工程成果。这里记录已验证能力、验收差距和下一实施单元。</p></header>
+    <div class="overview" aria-label="关键状态">
+      <article class="metric primary"><div class="metric-label">V0.1 验收门槛<span class="badge {{V0_CLASS}}">{{V0_STATUS}}</span></div><div class="metric-number">{{PASSED}}<small>/ 7 项通过</small></div><div class="metric-note status-count"><span><i class="dot" aria-hidden="true"></i>{{FAILED}} 项未通过</span><span><i class="dot amber" aria-hidden="true"></i>{{INSUFFICIENT}} 项证据不足</span></div></article>
+      <article class="metric"><div class="metric-label">可编辑 CAD 基础<span>v{{RELEASE}}</span></div><div class="metric-number words">{{CAD_STATUS}}</div><p class="metric-note">参数 · 特征 · 组件 · 原生版本 · STEP</p></article>
+      <article class="metric"><div class="metric-label">自主长程验收</div><div class="metric-number words">{{AUTONOMY_LABEL}}</div><p class="metric-note">{{AUTONOMY_DETAIL}}</p></article>
+    </div>
+    <div class="focus"><div><div class="focus-label">NEXT / 下一实施单元</div><h2>{{FOCUS}}</h2><p>{{FOCUS_DETAIL}}</p></div><a href="#next">查看实施顺序 →</a></div>
+    <section id="roadmap"><div class="section-heading"><div><h2><span class="section-index">01</span>能力与阶段</h2><p>阶段“通过”仅指所列支持范围；不替代 G1～G7 验收。</p></div><a href="docs/system-design-v1.md">整套系统设计 ↗</a></div><div class="stages">{{STAGES}}</div></section>
+    <section id="acceptance"><div class="section-heading"><div><h2><span class="section-index">02</span>V0.1 验收门槛</h2><p>目标验收日期 {{TARGET}} · 目标阈值，不是完成保证。</p></div><a href="docs/target-contract-v1.md">查看目标契约 ↗</a></div><div class="gates-box"><div class="filterbar" role="group" aria-label="筛选验收状态"><button type="button" class="filter" data-filter="all" aria-pressed="true">全部<span>7</span></button><button type="button" class="filter" data-filter="failed" aria-pressed="false">未通过<span>{{FAILED}}</span></button><button type="button" class="filter" data-filter="insufficient_evidence" aria-pressed="false">证据不足<span>{{INSUFFICIENT}}</span></button><button type="button" class="filter" data-filter="passed" aria-pressed="false">通过<span>{{PASSED}}</span></button></div><div id="gate-list">{{GATES}}</div><p id="empty" class="empty" role="status" hidden>当前没有符合此状态的验收门槛。</p></div></section>
+    <section id="evidence"><div class="section-heading"><div><h2><span class="section-index">03</span>已经执行的工程检查</h2><p>不同范围的回归记录，不相加为完成率，不计为正式验收成绩。</p></div><a href="qualification/mechanical/README.md">检查范围与复查命令 ↗</a></div><div class="evidence-grid">{{EVIDENCE}}</div></section>
+    <div class="columns"><section id="blockers"><div class="section-heading"><h2><span class="section-index">04</span>真实缺口</h2></div><div class="panel">{{BLOCKERS}}</div></section><section id="next"><div class="section-heading"><h2><span class="section-index">05</span>接下来怎么推进</h2></div><div class="panel next-panel"><ol>{{NEXT_ACTIONS}}</ol><div class="long-run"><strong>长程验收：</strong>先接通持续接受与恢复能力，再实际运行 G6；LH-001 另行执行，保留真实时长、需求变化与故障证据。</div></div></section></div>
+    <section id="history"><div class="section-heading"><div><h2><span class="section-index">06</span>任务记录</h2><p>最近完成：{{LATEST_TASK}}</p></div><a href="docs/current-state.md">完整状态依据 ↗</a></div><div class="history">{{HISTORY}}</div></section>
+    <footer><span>deep3d · 能力基线 {{BASELINE}} · 每次任务收尾更新，刷新后可见。</span><span><a href="docs/progress.json">状态数据</a> / <a href="AGENTS.md">更新规则</a> / <a href="README.md">项目说明</a></span></footer>
+  </main>
+  <script>
+    document.querySelector('#refresh').addEventListener('click', () => window.location.reload());
+    const filters = document.querySelectorAll('[data-filter]');
+    const gates = document.querySelectorAll('.gate');
+    const empty = document.querySelector('#empty');
+    for (const button of filters) {
+      button.addEventListener('click', () => {
+        let visible = 0;
+        for (const filter of filters) filter.setAttribute('aria-pressed', String(filter === button));
+        for (const gate of gates) {
+          gate.hidden = button.dataset.filter !== 'all' && gate.dataset.status !== button.dataset.filter;
+          if (!gate.hidden) visible += 1;
+        }
+        empty.hidden = visible !== 0;
+      });
+    }
+  </script>
+</body>
+</html>
