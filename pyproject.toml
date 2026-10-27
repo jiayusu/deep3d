@@ -12,12 +12,14 @@ dependencies = ["cadquery-ocp-novtk==8.0.1.0.0"]
 [project.scripts]
 deep3d-cad = "deep3d_cad.cli:main"
 deep3d-agent = "deep3d_agent.cli:main"
+deep3d-worker = "deep3d_worker.cli:main"
+deep3d-run = "deep3d_runtime_client.cli:main"
 
 [dependency-groups]
 dev = ["pytest==8.4.2", "jsonschema==4.25.1", "ruff==0.13.3"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["workers/cad/src/deep3d_cad", "runtime/agent/src/deep3d_agent"]
+packages = ["workers/cad/src/deep3d_cad", "runtime/agent/src/deep3d_agent", "runtime/worker/src/deep3d_worker", "runtime/client/src/deep3d_runtime_client"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

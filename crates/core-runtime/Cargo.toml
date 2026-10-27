@@ -1,0 +1,16 @@
+[package]
+name = "core-runtime"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+core-domain = { path = "../core-domain" }
+core-storage = { path = "../core-storage" }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+postgres.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

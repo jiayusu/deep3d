@@ -1,0 +1,21 @@
+[package]
+name = "runtime-service"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "deep3d-runtime"
+path = "src/main.rs"
+
+[dependencies]
+core-domain = { path = "../core-domain" }
+core-storage = { path = "../core-storage" }
+core-runtime = { path = "../core-runtime" }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+clap.workspace = true
+tempfile.workspace = true
+axum.workspace = true
+tokio.workspace = true

@@ -1,0 +1,29 @@
+{
+  "schema_version": "deep3d.task-plan/1",
+  "tasks": [
+    {
+      "key": "flange-thick",
+      "depends_on": [],
+      "source_task": null,
+      "changes_mm": {"thickness_mm": 16},
+      "max_attempts": 3,
+      "timeout_seconds": 600
+    },
+    {
+      "key": "flange-wide-bolts",
+      "depends_on": [],
+      "source_task": null,
+      "changes_mm": {"bolt_circle_diameter_mm": 80},
+      "max_attempts": 3,
+      "timeout_seconds": 600
+    },
+    {
+      "key": "flange-thick-and-wide",
+      "depends_on": ["flange-thick", "flange-wide-bolts"],
+      "source_task": "flange-thick",
+      "changes_mm": {"bolt_circle_diameter_mm": 80},
+      "max_attempts": 3,
+      "timeout_seconds": 600
+    }
+  ]
+}

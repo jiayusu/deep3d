@@ -1,0 +1,60 @@
+name: deep3d-runtime
+services:
+  postgres:
+    image: postgres@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    environment:
+      POSTGRES_USER: deep3d
+      POSTGRES_DB: deep3d
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deep3d -d deep3d"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    cpus: 1
+    mem_limit: 512m
+  runtime:
+    build:
+      context: ../..
+      dockerfile: deploy/runtime/service.Dockerfile
+    environment:
+      DEEP3D_DATABASE_URL: postgresql://deep3d:${POSTGRES_PASSWORD}@postgres:5432/deep3d
+      DEEP3D_OPERATOR_TOKEN: ${DEEP3D_OPERATOR_TOKEN:?Set DEEP3D_OPERATOR_TOKEN}
+      DEEP3D_WORKER_TOKEN: ${DEEP3D_WORKER_TOKEN:?Set DEEP3D_WORKER_TOKEN}
+    ports:
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - artifacts:/store
+      - attempts:/store/runs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    cpus: 1
+    mem_limit: 512m
+  worker:
+    build:
+      context: ../..
+      dockerfile: deploy/runtime/worker.Dockerfile
+    # Share only the service network namespace: internal API remains loopback.
+    network_mode: service:runtime
+    environment:
+      DEEP3D_WORKER_TOKEN: ${DEEP3D_WORKER_TOKEN:?Set DEEP3D_WORKER_TOKEN}
+    volumes:
+      - artifacts:/store:ro
+      - attempts:/store/runs
+    depends_on:
+      runtime:
+        condition: service_started
+    restart: unless-stopped
+    stop_grace_period: 30s
+    cpus: 2
+    mem_limit: 2g
+    pids_limit: 256
+volumes:
+  postgres-data:
+  artifacts:
+  attempts:
