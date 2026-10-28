@@ -1,24 +1,24 @@
 {
   "schema_version": "deep3d.progress/1",
-  "updated_at": "2026-10-28T11:55:00+00:00",
+  "updated_at": "2026-10-28T12:25:00+00:00",
   "project": "deep3d",
   "release": "0.3.0",
-  "source_commit": "91c5ae8",
+  "source_commit": "b933147",
   "target_date": "2026-11-01",
-  "headline": "目标版本与公开验证提交已接通；G4 测量满足门槛但未冻结，V0.1 仍未达标。",
-  "focus": "分类失效与冻结变更案例",
-  "focus_stage": "04",
-  "focus_detail": "Feature 级失效解释、几何缓存复用和全量对照已在开发样例上跑通；下一步实现六类分类失效，并为 20 个变更准备独立种子与 oracle。",
+  "headline": "20 个变更案例已实际执行（草案，19/20）；G3、G4 证据不足，V0.1 仍未达标。",
+  "focus": "冲突证据与独立冻结",
+  "focus_stage": "06",
+  "focus_detail": "局部修改已在 C01～C10 种子上跑通；下一步为冲突要求输出几何证据，并请独立审阅者复核种子与 oracle 后冻结注册。",
   "autonomy": {
     "status": "failed",
     "label": "尚未启动",
     "detail": "G6 ≥2 小时 / LH-001 72 小时"
   },
   "next_actions": [
-    "实现 DefinitionDirty / GeometryDirty / PlacementDirty 等分类失效，使改名、移动实例不触发几何重算。",
-    "为 M01～M20 准备原生种子工程与独立 oracle，跑增量与全量对照并记录。",
-    "把自然语言规划入口接到 GoalRevision / PlanRevision；需要可用的模型服务凭据才能开始 G1 / G6。",
-    "由授权注册者冻结注册表与清单后，在约定机器上重跑 G4。"
+    "为冲突要求输出几何证据（孔相交、出界、壁厚不足），补齐 M18。",
+    "由独立审阅者复核 C01～C10 种子、角色绑定与 oracle，冻结注册表和清单。",
+    "把 G5 五类恢复场景接到公开提交边界上端到端执行。",
+    "接入可用的模型服务后，把自然语言入口接到 GoalRevision，开始 G1 / G6。"
   ],
   "gates": [
     {
@@ -34,16 +34,16 @@
       "title": "可编辑源与无 Agent 重建",
       "status": "insufficient_evidence",
       "threshold": "10 份源资产完整；至少 8 个成功对象可修改参数并重建。",
-      "current": "3 类工程回归源可重开；已检查无 Agent 参数编辑与旧版本保留。",
-      "missing": "10 份正式交付与至少 8 例预注册编辑记录。"
+      "current": "C01～C10 可编辑原生种子已建立，参数修改无需 Agent 即可重建（G3 运行中实际执行）。",
+      "missing": "G2 以 G1 自然语言生成的 10 份交付为分母；需先有 G1 结果及至少 8 例编辑记录。"
     },
     {
       "id": "G3",
       "title": "真实增量与结果一致",
-      "status": "failed",
+      "status": "insufficient_evidence",
       "threshold": "20 个变更至少 18 个正确；依赖准确，结果与全量重算等价。",
-      "current": "Feature 级失效解释（deep3d explain）、ActionCache 复用和无缓存全量几何对照已在开发样例回归通过。",
-      "missing": "六类分类失效、属性级读写集、20 个冻结变更的种子与独立 oracle 及正式执行。"
+      "current": "草案 20 个变更实测 19 个通过：18 个有效变更失效、执行、复用与全量重建全部一致；M19 正确拒绝。",
+      "missing": "M18 的几何冲突证据、独立审阅的种子与 oracle、注册冻结；10 个自然语言案例仍以类型化 IR 执行。"
     },
     {
       "id": "G4",
@@ -106,9 +106,9 @@
     {
       "id": "04",
       "title": "真正的局部修改",
-      "status": "failed",
+      "status": "passed",
       "detail": "属性读写集、分类失效、几何缓存、变更解释及全量对照。",
-      "scope": "变更解释、缓存复用与全量对照已有开发样例回归；分类失效与属性级读写集未实现。",
+      "scope": "参数/Feature 粒度的分类失效、缓存复用与全量对照在草案 18 个有效变更上全部一致；选择器等动态读集未单独追踪。",
       "href": "docs/system-design-v1.md"
     },
     {
@@ -124,24 +124,17 @@
       "title": "验收、交付与长程",
       "status": "failed",
       "detail": "冻结 G1～G7、统一成果包、独立复现；再执行 LH-001。",
-      "scope": "10 / 20 / 5 案例仍为草案，未执行正式验收。",
+      "scope": "G3 草案案例已执行（19/20），G4 已测量；注册仍未冻结，未执行正式验收。",
       "href": "docs/acceptance-protocol-v0.1.md"
     }
   ],
   "evidence": [
     {
-      "value": "65",
-      "label": "Linux Rust 工作区",
-      "detail": "含 PostgreSQL 16 上的运行时与项目权威测试。",
-      "status": "passed",
-      "href": "qualification/mechanical/README.md"
-    },
-    {
-      "value": "366",
-      "label": "Linux Python / OCCT 回归",
-      "detail": "含新增增量执行与全量重建对照 4 项。",
-      "status": "passed",
-      "href": "tests/test_incremental.py"
+      "value": "19/20",
+      "label": "G3 变更案例",
+      "detail": "18 个有效变更与全量重建一致；M18 缺冲突证据。草案，记为证据不足。",
+      "status": "insufficient_evidence",
+      "href": "qualification/g3/README.md"
     },
     {
       "value": "1000/1000",
@@ -151,11 +144,18 @@
       "href": "qualification/g4/README.md"
     },
     {
-      "value": "4",
-      "label": "验收 JSON Schema",
-      "detail": "结构检查通过；注册草案尚未冻结。",
+      "value": "68",
+      "label": "Linux Rust 工作区",
+      "detail": "含 PostgreSQL 16 上的运行时与项目权威测试。",
       "status": "passed",
-      "href": "docs/acceptance-protocol-v0.1.md"
+      "href": "qualification/mechanical/README.md"
+    },
+    {
+      "value": "371",
+      "label": "Linux Python / OCCT 回归",
+      "detail": "含增量执行、全量对照与变更运行器回归。",
+      "status": "passed",
+      "href": "tests/test_g3_changes.py"
     }
   ],
   "blockers": [
@@ -165,9 +165,9 @@
       "href": "docs/current-state.md"
     },
     {
-      "title": "分类失效与冻结变更案例未完成",
-      "detail": "Feature 级增量已可用，但改名/移动等仍缺分类处理，20 个变更没有独立种子与 oracle。",
-      "href": "docs/system-design-v1.md"
+      "title": "G3 / G4 证据尚未独立冻结",
+      "detail": "种子、角色绑定和 oracle 由同一作者编写，M18 缺几何冲突证据；需要独立审阅与冻结。",
+      "href": "qualification/g3/README.md"
     },
     {
       "title": "正式验收与分发条件仍缺证据",
@@ -176,6 +176,12 @@
     }
   ],
   "history": [
+    {
+      "date": "2026-10-28",
+      "title": "执行 20 个注册变更案例",
+      "detail": "建立 C01～C10 可编辑原生种子，新增线性参数表达式、平面内选边与六类变化分类；M01～M20 实测 19 个通过，18 个有效变更与全量重建一致，M18 缺几何冲突证据。",
+      "href": "qualification/g3/README.md"
+    },
     {
       "date": "2026-10-28",
       "title": "Linux 修复、G4 实测与增量对照",
