@@ -65,13 +65,22 @@ def _acceptance(value: object) -> None:
         if (
             not isinstance(target, dict)
             or "solid_count" not in target
-            or set(target) - {"solid_count", "volume_mm3", "bounds_mm"}
+            or set(target) - {"solid_count", "volume_mm3", "bounds_mm", "axial_holes"}
             or type(target["solid_count"]) is not int
             or not 1 <= target["solid_count"] <= 4096
             or target.get("volume_mm3") is None
             and target.get("bounds_mm") is None
         ):
             raise ValueError("Invalid independent node target")
+        holes = target.get("axial_holes")
+        if holes is not None and (
+            not isinstance(holes, dict)
+            or set(holes) - {"axis", "diameter_mm", "centers_mm", "through", "min_wall_mm"}
+            or not isinstance(holes.get("centers_mm"), list)
+            or target.get("bounds_mm") is None
+        ):
+            # Full consistency is decided by the coordinator and the CAD verifier.
+            raise ValueError("Invalid axial hole target")
         volume = target.get("volume_mm3")
         if volume is not None and (
             type(volume) not in (int, float) or not math.isfinite(volume) or volume <= 0

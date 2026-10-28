@@ -1,0 +1,2779 @@
+{
+ "schema_version": "deep3d.g3-run/1",
+ "observed_at": "2026-10-28T13:15:28+00:00",
+ "source_commit": "4e99626",
+ "registry_state": "draft",
+ "machine": {
+  "os": "Linux-6.18.44-fc-v180-x86_64-with-glibc2.39",
+  "python": "3.12.3"
+ },
+ "cases": 20,
+ "passed": 20,
+ "valid_change_successes": 18,
+ "correct_rejections": 2,
+ "errors_or_unknown": [],
+ "dependency_exact": 18,
+ "full_rebuild_equivalent": 18,
+ "natural_language_cases_run_as_typed_ir": [
+  "M02",
+  "M05",
+  "M07",
+  "M09",
+  "M10",
+  "M12",
+  "M14",
+  "M16",
+  "M18",
+  "M20"
+ ],
+ "results": [
+  {
+   "id": "M01",
+   "seed_case": "C01",
+   "category": "upstream_parameter",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "HoleTool1",
+     "HoleTool2",
+     "HoleTool3",
+     "HoleTool4",
+     "HoleTools",
+     "MountingPlate",
+     "StockBody"
+    ],
+    "actual_invalidated": [
+     "HoleTool1",
+     "HoleTool2",
+     "HoleTool3",
+     "HoleTool4",
+     "HoleTools",
+     "MountingPlate",
+     "StockBody"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [
+     {
+      "feature": "HoleTools",
+      "because": [
+       "HoleTool1",
+       "HoleTool2",
+       "HoleTool3",
+       "HoleTool4"
+      ]
+     },
+     {
+      "feature": "MountingPlate",
+      "because": [
+       "HoleTools",
+       "StockBody"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "HoleTool1",
+      "HoleTool2",
+      "HoleTool3",
+      "HoleTool4",
+      "StockBody"
+     ],
+     "delivery": [],
+     "evidence": [
+      "mounting_plate"
+     ],
+     "geometry": [
+      "HoleTool1",
+      "HoleTool2",
+      "HoleTool3",
+      "HoleTool4",
+      "HoleTools",
+      "MountingPlate",
+      "StockBody"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "HoleTool1",
+     "HoleTool2",
+     "HoleTool3",
+     "HoleTool4",
+     "HoleTools",
+     "MountingPlate",
+     "StockBody"
+    ],
+    "reused": [
+     "HoleProfile1",
+     "HoleProfile2",
+     "HoleProfile3",
+     "HoleProfile4",
+     "StockProfile"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "1e83124b-47bf-467d-a34d-47dacda229ec",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 14,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       25,
+       15,
+       9.5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -25,
+       -15,
+       0.5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       0,
+       0,
+       9.5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 12.841
+  },
+  {
+   "id": "M02",
+   "seed_case": "C01",
+   "category": "upstream_parameter",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "MountingPlate",
+     "StockBody",
+     "StockProfile"
+    ],
+    "actual_invalidated": [
+     "MountingPlate",
+     "StockBody",
+     "StockProfile"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [
+     {
+      "feature": "StockBody",
+      "because": [
+       "StockProfile"
+      ]
+     },
+     {
+      "feature": "MountingPlate",
+      "because": [
+       "StockBody"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "StockProfile"
+     ],
+     "delivery": [],
+     "evidence": [
+      "mounting_plate"
+     ],
+     "geometry": [
+      "MountingPlate",
+      "StockBody",
+      "StockProfile"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "MountingPlate",
+     "StockBody",
+     "StockProfile"
+    ],
+    "reused": [
+     "HoleProfile1",
+     "HoleProfile2",
+     "HoleProfile3",
+     "HoleProfile4",
+     "HoleTool1",
+     "HoleTool2",
+     "HoleTool3",
+     "HoleTool4",
+     "HoleTools"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "8eec0a1b-5bf9-4ae9-8e15-3cdff5b5460d",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 14,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       25,
+       15,
+       4
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -25,
+       -15,
+       4
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -25,
+       15,
+       4
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       45,
+       0,
+       4
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 12.04
+  },
+  {
+   "id": "M03",
+   "seed_case": "C02",
+   "category": "upstream_parameter",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "BoredShaft",
+     "ShaftAxisToZ",
+     "ShaftRevolution",
+     "ShaftSection"
+    ],
+    "actual_invalidated": [
+     "BoredShaft",
+     "ShaftAxisToZ",
+     "ShaftRevolution",
+     "ShaftSection"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [
+     {
+      "feature": "BoredShaft",
+      "because": [
+       "ShaftAxisToZ"
+      ]
+     },
+     {
+      "feature": "ShaftRevolution",
+      "because": [
+       "ShaftSection"
+      ]
+     },
+     {
+      "feature": "ShaftAxisToZ",
+      "because": [
+       "ShaftRevolution"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "ShaftSection"
+     ],
+     "delivery": [],
+     "evidence": [
+      "stepped_shaft"
+     ],
+     "geometry": [
+      "BoredShaft",
+      "ShaftAxisToZ",
+      "ShaftRevolution",
+      "ShaftSection"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "BoredShaft",
+     "ShaftAxisToZ",
+     "ShaftRevolution",
+     "ShaftSection"
+    ],
+    "reused": [
+     "BoreProfile",
+     "BoreTool"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "8c193e37-2925-4438-a354-1dbdf5dc74cc",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 8,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       13,
+       0,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       13,
+       0,
+       30
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       0,
+       0,
+       20
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 11.628
+  },
+  {
+   "id": "M04",
+   "seed_case": "C03",
+   "category": "local_feature",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "FreeEndFilletX",
+     "FreeEndFilletY"
+    ],
+    "actual_invalidated": [
+     "FreeEndFilletX",
+     "FreeEndFilletY"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [
+     {
+      "feature": "FreeEndFilletY",
+      "because": [
+       "FreeEndFilletX"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "FreeEndFilletX",
+      "FreeEndFilletY"
+     ],
+     "delivery": [],
+     "evidence": [
+      "l_bracket"
+     ],
+     "geometry": [
+      "FreeEndFilletX",
+      "FreeEndFilletY"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "FreeEndFilletX",
+     "FreeEndFilletY"
+    ],
+    "reused": [
+     "AngleBody",
+     "AngleSection"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "67e6373d-a635-47e2-9396-a53258c81995",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 6,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       39.9,
+       5.9,
+       10
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       5.9,
+       29.9,
+       10
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       0.05,
+       0.05,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       5.95,
+       5.95,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 11.361
+  },
+  {
+   "id": "M05",
+   "seed_case": "C04",
+   "category": "local_feature",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "HoleMouthChamfer"
+    ],
+    "actual_invalidated": [
+     "HoleMouthChamfer"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [],
+    "classes": {
+     "definition": [
+      "HoleMouthChamfer"
+     ],
+     "delivery": [],
+     "evidence": [
+      "chamfered_block"
+     ],
+     "geometry": [
+      "HoleMouthChamfer"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "HoleMouthChamfer"
+    ],
+    "reused": [
+     "BlockBody",
+     "BlockProfile",
+     "BoredBlock",
+     "HoleProfile",
+     "HoleTool"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "efc0d4b9-4276-45a7-ac03-ffe5e04bbbe5",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 8,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       5.3,
+       0,
+       9.9
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       5.3,
+       0,
+       9.0
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       5.6,
+       0,
+       9.4
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 11.277
+  },
+  {
+   "id": "M06",
+   "seed_case": "C05",
+   "category": "upstream_parameter",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "BoltCut",
+     "BoltPattern",
+     "BoltSeedPlacement"
+    ],
+    "actual_invalidated": [
+     "BoltCut",
+     "BoltPattern",
+     "BoltSeedPlacement"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [
+     "DiskProfile"
+    ],
+    "reasons": [
+     {
+      "feature": "BoltPattern",
+      "because": [
+       "BoltSeedPlacement"
+      ]
+     },
+     {
+      "feature": "BoltCut",
+      "because": [
+       "BoltPattern"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "BoltSeedPlacement"
+     ],
+     "delivery": [],
+     "evidence": [
+      "bolt_disk"
+     ],
+     "geometry": [
+      "BoltCut",
+      "BoltPattern"
+     ],
+     "placement": [
+      "BoltSeedPlacement"
+     ],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "BoltCut",
+     "BoltPattern",
+     "BoltSeedPlacement"
+    ],
+    "reused": [
+     "BoltProfile",
+     "BoltTool",
+     "CenterCut",
+     "CenterProfile",
+     "CenterTool",
+     "DiskBody",
+     "DiskProfile"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "8a19f2f8-dd2d-4ee9-9318-6c926d4c4d7b",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 12,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       38.0,
+       0.0,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       26.870057685088806,
+       26.870057685088803,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       2.326828918379971e-15,
+       38.0,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -26.870057685088803,
+       26.870057685088806,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -38.0,
+       4.653657836759942e-15,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -26.870057685088813,
+       -26.870057685088803,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -6.980486755139913e-15,
+       -38.0,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       26.8700576850888,
+       -26.870057685088813,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       33.5,
+       0.0,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       23.688077169749345,
+       23.68807716974934,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       2.0512833885718165e-15,
+       33.5,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -23.68807716974934,
+       23.688077169749345,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -33.5,
+       4.102566777143633e-15,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -23.68807716974935,
+       -23.68807716974934,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -6.153850165715449e-15,
+       -33.5,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       23.688077169749338,
+       -23.68807716974935,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 12.029
+  },
+  {
+   "id": "M07",
+   "seed_case": "C05",
+   "category": "topology_change",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "BoltCut",
+     "BoltPattern"
+    ],
+    "actual_invalidated": [
+     "BoltCut",
+     "BoltPattern"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [
+     "BoltSeedPlacement"
+    ],
+    "reasons": [
+     {
+      "feature": "BoltCut",
+      "because": [
+       "BoltPattern"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "BoltPattern"
+     ],
+     "delivery": [],
+     "evidence": [
+      "bolt_disk"
+     ],
+     "geometry": [
+      "BoltCut",
+      "BoltPattern"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "BoltCut",
+     "BoltPattern"
+    ],
+    "reused": [
+     "BoltProfile",
+     "BoltSeedPlacement",
+     "BoltTool",
+     "CenterCut",
+     "CenterProfile",
+     "CenterTool",
+     "DiskBody",
+     "DiskProfile"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "b238d786-7c47-4cdf-bec9-05c44f417779",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 12,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       35.0,
+       0.0,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       17.500000000000004,
+       30.31088913245535,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -17.499999999999993,
+       30.310889132455355,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -35.0,
+       4.2862637970157365e-15,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -17.500000000000014,
+       -30.310889132455344,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       17.500000000000004,
+       -30.31088913245535,
+       5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       24.748737341529164,
+       24.74873734152916,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -24.74873734152916,
+       24.748737341529164,
+       5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 12.14
+  },
+  {
+   "id": "M08",
+   "seed_case": "C06",
+   "category": "upstream_parameter",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "FinBody",
+     "FinPattern",
+     "FinPlacement",
+     "Heatsink"
+    ],
+    "actual_invalidated": [
+     "FinBody",
+     "FinPattern",
+     "FinPlacement",
+     "Heatsink"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [
+     {
+      "feature": "FinPlacement",
+      "because": [
+       "FinPattern"
+      ]
+     },
+     {
+      "feature": "FinPattern",
+      "because": [
+       "FinBody"
+      ]
+     },
+     {
+      "feature": "Heatsink",
+      "because": [
+       "FinPlacement"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "FinBody"
+     ],
+     "delivery": [],
+     "evidence": [
+      "heatsink"
+     ],
+     "geometry": [
+      "FinBody",
+      "FinPattern",
+      "FinPlacement",
+      "Heatsink"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "FinBody",
+     "FinPattern",
+     "FinPlacement",
+     "Heatsink"
+    ],
+    "reused": [
+     "BaseBody",
+     "BaseProfile",
+     "FinProfile"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "075757a2-86c3-4b92-9ab8-d8467c0d6a40",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 9,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       0,
+       0,
+       22.5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       20,
+       0,
+       22.5
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       5,
+       0,
+       22.5
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 12.849
+  },
+  {
+   "id": "M09",
+   "seed_case": "C06",
+   "category": "topology_change",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "FinPattern",
+     "FinPlacement",
+     "Heatsink"
+    ],
+    "actual_invalidated": [
+     "FinPattern",
+     "FinPlacement",
+     "Heatsink"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [
+     "BaseProfile"
+    ],
+    "reasons": [
+     {
+      "feature": "FinPlacement",
+      "because": [
+       "FinPattern"
+      ]
+     },
+     {
+      "feature": "Heatsink",
+      "because": [
+       "FinPlacement"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "FinPattern",
+      "FinPlacement"
+     ],
+     "delivery": [],
+     "evidence": [
+      "heatsink"
+     ],
+     "geometry": [
+      "FinPattern",
+      "FinPlacement",
+      "Heatsink"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "FinPattern",
+     "FinPlacement",
+     "Heatsink"
+    ],
+    "reused": [
+     "BaseBody",
+     "BaseProfile",
+     "FinBody",
+     "FinProfile"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "1acc2178-e882-4a43-8a65-60a7274ab260",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 9,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       -24,
+       0,
+       12
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -16,
+       0,
+       12
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -8,
+       0,
+       12
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       0,
+       0,
+       12
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       8,
+       0,
+       12
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       16,
+       0,
+       12
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       24,
+       0,
+       12
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -20,
+       0,
+       12
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       20,
+       0,
+       12
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 13.326
+  },
+  {
+   "id": "M10",
+   "seed_case": "C07",
+   "category": "upstream_parameter",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "SlotSketch",
+     "SlotTool",
+     "SlottedPlate"
+    ],
+    "actual_invalidated": [
+     "SlotSketch",
+     "SlotTool",
+     "SlottedPlate"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [
+     {
+      "feature": "SlotTool",
+      "because": [
+       "SlotSketch"
+      ]
+     },
+     {
+      "feature": "SlottedPlate",
+      "because": [
+       "SlotTool"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "SlotSketch"
+     ],
+     "delivery": [],
+     "evidence": [
+      "slot_plate"
+     ],
+     "geometry": [
+      "SlotSketch",
+      "SlotTool",
+      "SlottedPlate"
+     ],
+     "placement": [],
+     "solve": [
+      "SlotSketch"
+     ]
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "SlotSketch",
+     "SlotTool",
+     "SlottedPlate"
+    ],
+    "reused": [
+     "PlateBody",
+     "PlateProfile"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "9ab64f47-48bc-47a1-9cfd-d6490663c061",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 7,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       0,
+       3.5,
+       3
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       9.5,
+       0,
+       3
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -9.5,
+       0,
+       3
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       0,
+       4.5,
+       3
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       10.5,
+       0,
+       3
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       9.5,
+       3.5,
+       3
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 11.603
+  },
+  {
+   "id": "M11",
+   "seed_case": "C08",
+   "category": "upstream_parameter",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "BlockBody",
+     "BlockProfile",
+     "BoreCutLeft",
+     "BoreCutRight",
+     "BoreLeft",
+     "BoreRight",
+     "CounterboreCutLeft",
+     "CounterboreCutRight",
+     "CounterboreLeft",
+     "CounterboreRight"
+    ],
+    "actual_invalidated": [
+     "BlockBody",
+     "BlockProfile",
+     "BoreCutLeft",
+     "BoreCutRight",
+     "BoreLeft",
+     "BoreRight",
+     "CounterboreCutLeft",
+     "CounterboreCutRight",
+     "CounterboreLeft",
+     "CounterboreRight"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [
+     {
+      "feature": "BlockBody",
+      "because": [
+       "BlockProfile"
+      ]
+     },
+     {
+      "feature": "CounterboreCutLeft",
+      "because": [
+       "BoreCutRight",
+       "CounterboreLeft"
+      ]
+     },
+     {
+      "feature": "BoreCutRight",
+      "because": [
+       "BoreCutLeft",
+       "BoreRight"
+      ]
+     },
+     {
+      "feature": "BoreCutLeft",
+      "because": [
+       "BlockBody",
+       "BoreLeft"
+      ]
+     },
+     {
+      "feature": "CounterboreCutRight",
+      "because": [
+       "CounterboreCutLeft",
+       "CounterboreRight"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "BlockProfile",
+      "BoreLeft",
+      "BoreRight",
+      "CounterboreLeft",
+      "CounterboreRight"
+     ],
+     "delivery": [],
+     "evidence": [
+      "bearing_block"
+     ],
+     "geometry": [
+      "BlockBody",
+      "BlockProfile",
+      "BoreCutLeft",
+      "BoreCutRight",
+      "CounterboreCutLeft",
+      "CounterboreCutRight"
+     ],
+     "placement": [
+      "BoreLeft",
+      "BoreRight",
+      "CounterboreLeft",
+      "CounterboreRight"
+     ],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "BlockBody",
+     "BlockProfile",
+     "BoreCutLeft",
+     "BoreCutRight",
+     "BoreLeft",
+     "BoreRight",
+     "CounterboreCutLeft",
+     "CounterboreCutRight",
+     "CounterboreLeft",
+     "CounterboreRight"
+    ],
+    "reused": [
+     "BoreProfile",
+     "BoreTool",
+     "CounterboreProfile",
+     "CounterboreTool"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "4038a4eb-d9e7-465f-b97a-b20092ade6d0",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 16,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       24,
+       0,
+       10
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -24,
+       0,
+       10
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       24,
+       9,
+       18
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       17,
+       0,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -17,
+       0,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       24,
+       9,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 12.899
+  },
+  {
+   "id": "M12",
+   "seed_case": "C09",
+   "category": "cross_component",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerBody",
+     "SpacerFrontLeftInstance",
+     "SpacerFrontRightInstance",
+     "TopPlateInstance"
+    ],
+    "actual_invalidated": [
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerBody",
+     "SpacerFrontLeftInstance",
+     "SpacerFrontRightInstance",
+     "TopPlateInstance"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [
+     {
+      "feature": "SpacerFrontLeftInstance",
+      "because": [
+       "SpacerBody"
+      ]
+     },
+     {
+      "feature": "SpacerBackRightInstance",
+      "because": [
+       "SpacerBody"
+      ]
+     },
+     {
+      "feature": "SpacerFrontRightInstance",
+      "because": [
+       "SpacerBody"
+      ]
+     },
+     {
+      "feature": "SpacerBackLeftInstance",
+      "because": [
+       "SpacerBody"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "SpacerBody",
+      "TopPlateInstance"
+     ],
+     "delivery": [],
+     "evidence": [
+      "spacer_back_left",
+      "spacer_back_right",
+      "spacer_front_left",
+      "spacer_front_right",
+      "top_plate"
+     ],
+     "geometry": [
+      "SpacerBackLeftInstance",
+      "SpacerBackRightInstance",
+      "SpacerBody",
+      "SpacerFrontLeftInstance",
+      "SpacerFrontRightInstance"
+     ],
+     "placement": [
+      "TopPlateInstance"
+     ],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerBody",
+     "SpacerFrontLeftInstance",
+     "SpacerFrontRightInstance",
+     "TopPlateInstance"
+    ],
+    "reused": [
+     "BottomPlateInstance",
+     "PlateBody",
+     "PlateProfile",
+     "SpacerProfile"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "4ed9d739-9636-4167-b9cd-836723c070e4",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 17,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       12,
+       8,
+       18
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       0,
+       0,
+       21
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       0,
+       0,
+       17
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 13.417
+  },
+  {
+   "id": "M13",
+   "seed_case": "C10",
+   "category": "cross_component",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "BeamInstance",
+     "UprightBody",
+     "UprightLeftInstance",
+     "UprightRightInstance"
+    ],
+    "actual_invalidated": [
+     "BeamInstance",
+     "UprightBody",
+     "UprightLeftInstance",
+     "UprightRightInstance"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [
+     "UprightProfile"
+    ],
+    "reasons": [
+     {
+      "feature": "UprightLeftInstance",
+      "because": [
+       "UprightBody"
+      ]
+     },
+     {
+      "feature": "UprightRightInstance",
+      "because": [
+       "UprightBody"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "BeamInstance",
+      "UprightBody"
+     ],
+     "delivery": [],
+     "evidence": [
+      "beam",
+      "upright_left",
+      "upright_right"
+     ],
+     "geometry": [
+      "UprightBody",
+      "UprightLeftInstance",
+      "UprightRightInstance"
+     ],
+     "placement": [
+      "BeamInstance"
+     ],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "BeamInstance",
+     "UprightBody",
+     "UprightLeftInstance",
+     "UprightRightInstance"
+    ],
+    "reused": [
+     "BaseBody",
+     "BaseProfile",
+     "BeamBody",
+     "BeamProfile",
+     "UprightProfile"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "3142718c-6a8b-41ba-8afd-438058f16994",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 14,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       35,
+       0,
+       57
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       0,
+       0,
+       59
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       0,
+       0,
+       57
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 12.477
+  },
+  {
+   "id": "M14",
+   "seed_case": "C10",
+   "category": "local_feature",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "BeamBody",
+     "BeamInstance",
+     "BeamProfile"
+    ],
+    "actual_invalidated": [
+     "BeamBody",
+     "BeamInstance",
+     "BeamProfile"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [
+     "BaseProfile",
+     "UprightProfile"
+    ],
+    "reasons": [
+     {
+      "feature": "BeamBody",
+      "because": [
+       "BeamProfile"
+      ]
+     },
+     {
+      "feature": "BeamInstance",
+      "because": [
+       "BeamBody"
+      ]
+     }
+    ],
+    "classes": {
+     "definition": [
+      "BeamProfile"
+     ],
+     "delivery": [],
+     "evidence": [
+      "beam"
+     ],
+     "geometry": [
+      "BeamBody",
+      "BeamInstance",
+      "BeamProfile"
+     ],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "BeamBody",
+     "BeamInstance",
+     "BeamProfile"
+    ],
+    "reused": [
+     "BaseBody",
+     "BaseProfile",
+     "UprightBody",
+     "UprightLeftInstance",
+     "UprightProfile",
+     "UprightRightInstance"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "c62bdc68-e07e-4774-a712-c1d75bb9eb7f",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 14,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       46.5,
+       0,
+       50
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       47.5,
+       0,
+       50
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 11.956
+  },
+  {
+   "id": "M15",
+   "seed_case": "C09",
+   "category": "metadata_only",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [],
+    "actual_invalidated": [],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [],
+    "classes": {
+     "definition": [],
+     "delivery": [
+      "spacer_service"
+     ],
+     "evidence": [
+      "spacer_service"
+     ],
+     "geometry": [],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "metadata_only_respected": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [],
+    "reused": [
+     "BottomPlateInstance",
+     "PlateBody",
+     "PlateProfile",
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerBody",
+     "SpacerFrontLeftInstance",
+     "SpacerFrontRightInstance",
+     "SpacerProfile",
+     "TopPlateInstance"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "e38529d6-ac02-49bb-8f62-6b44dc092b14",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 17,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       -12,
+       -8,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true,
+    "instance_names_pass": true,
+    "step_names_pass": true
+   },
+   "pass": true,
+   "seconds": 12.655
+  },
+  {
+   "id": "M16",
+   "seed_case": "C09",
+   "category": "cross_component",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerFrontLeftInstance",
+     "SpacerFrontRightInstance"
+    ],
+    "actual_invalidated": [
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerFrontLeftInstance",
+     "SpacerFrontRightInstance"
+    ],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [],
+    "classes": {
+     "definition": [
+      "SpacerBackLeftInstance",
+      "SpacerBackRightInstance",
+      "SpacerFrontLeftInstance",
+      "SpacerFrontRightInstance"
+     ],
+     "delivery": [],
+     "evidence": [
+      "spacer_back_left",
+      "spacer_back_right",
+      "spacer_front_left",
+      "spacer_front_right"
+     ],
+     "geometry": [],
+     "placement": [
+      "SpacerBackLeftInstance",
+      "SpacerBackRightInstance",
+      "SpacerFrontLeftInstance",
+      "SpacerFrontRightInstance"
+     ],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerFrontLeftInstance",
+     "SpacerFrontRightInstance"
+    ],
+    "reused": [
+     "BottomPlateInstance",
+     "PlateBody",
+     "PlateProfile",
+     "SpacerBody",
+     "SpacerProfile",
+     "TopPlateInstance"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "92210f55-6c3b-4fd0-8184-420d6bed21d1",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 17,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       10,
+       8,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       -10,
+       -8,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     },
+     {
+      "point": [
+       13.5,
+       8,
+       10
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       -13.5,
+       -8,
+       10
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     }
+    ],
+    "probes_pass": true
+   },
+   "pass": true,
+   "seconds": 12.355
+  },
+  {
+   "id": "M17",
+   "seed_case": "C09",
+   "category": "topology_change",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [],
+    "actual_invalidated": [],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [
+     "SpacerCenterInstance"
+    ],
+    "actual_new": [
+     "SpacerCenterInstance"
+    ],
+    "expected_removed": [],
+    "actual_removed": [],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [],
+    "classes": {
+     "definition": [
+      "SpacerCenterInstance"
+     ],
+     "delivery": [
+      "spacer_center"
+     ],
+     "evidence": [
+      "spacer_center"
+     ],
+     "geometry": [],
+     "placement": [
+      "SpacerCenterInstance"
+     ],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [
+     "SpacerCenterInstance"
+    ],
+    "reused": [
+     "BottomPlateInstance",
+     "PlateBody",
+     "PlateProfile",
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerBody",
+     "SpacerFrontLeftInstance",
+     "SpacerFrontRightInstance",
+     "SpacerProfile",
+     "TopPlateInstance"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "1c2c831e-041b-4dbf-b858-10ed7107785a",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 19,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       0,
+       0,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true,
+    "bom": {
+     "SpacerBody": 5,
+     "PlateBody": 2
+    },
+    "bom_pass": true
+   },
+   "pass": true,
+   "seconds": 12.89
+  },
+  {
+   "id": "M18",
+   "seed_case": "C01",
+   "category": "invalid_input",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "reject_preserve_last_verified",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "rejected",
+   "rejection": {
+    "stage": "candidate",
+    "error": {
+     "code": "GOAL_CONFLICT",
+     "message": "Axial hole requirements contradict each other: hole_overlap[0,1]: wall -30.000000 mm; hole_overlap[0,2]: wall -10.000000 mm; hole_overlap[0,3]: wall -1.690481 mm; hole_outside_stock[0]: exceeds bounds by 20.000000 mm; hole_overlap[1,2]: wall -1.690481 mm; hole_overlap[1,3]: wall -10.000000 mm; hole_outside_stock[1]: exceeds bounds by 20.000000 mm; hole_overlap[2,3]: wall -30.000000 mm; hole_outside_stock[2]: exceeds bounds by 20.000000 mm; hole_outside_stock[3]: exceeds bounds by 20.000000 mm; minimum_wall_violation: required 2 mm cannot hold"
+    }
+   },
+   "authoritative_head_unchanged": true,
+   "history_length": 1,
+   "registered_witnesses": {
+    "hole_overlap": true,
+    "hole_outside_stock": true,
+    "minimum_wall_violation": true
+   },
+   "witnesses_reported": true,
+   "pass": true,
+   "seconds": 3.709
+  },
+  {
+   "id": "M19",
+   "seed_case": "C02",
+   "category": "invalid_input",
+   "registered_entry_mode": "typed_ir",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "reject_preserve_last_verified",
+   "outcome": "rejected",
+   "rejection": {
+    "stage": "candidate",
+    "error": {
+     "code": "FEATURE_NOT_FOUND",
+     "message": "Unknown feature input"
+    }
+   },
+   "authoritative_head_unchanged": true,
+   "history_length": 1,
+   "registered_witnesses": {},
+   "witnesses_reported": true,
+   "pass": true,
+   "seconds": 3.942
+  },
+  {
+   "id": "M20",
+   "seed_case": "C09",
+   "category": "topology_change",
+   "registered_entry_mode": "natural_language",
+   "executed_entry_mode": "typed_ir",
+   "expected_outcome": "verified_new_commit",
+   "entry_mode_note": "natural-language entry not exercised; typed-IR equivalent executed",
+   "outcome": "verified_new_commit",
+   "dependency": {
+    "expected_invalidated": [],
+    "actual_invalidated": [],
+    "false_positive": [],
+    "false_negative": [],
+    "preserved_but_invalidated": [],
+    "expected_new": [],
+    "actual_new": [],
+    "expected_removed": [
+     "SpacerFrontLeftInstance"
+    ],
+    "actual_removed": [
+     "SpacerFrontLeftInstance"
+    ],
+    "unbound_roles": [],
+    "unclassified_seed_features": [],
+    "reasons": [],
+    "classes": {
+     "definition": [
+      "SpacerFrontLeftInstance"
+     ],
+     "delivery": [
+      "spacer_front_left"
+     ],
+     "evidence": [
+      "spacer_front_left"
+     ],
+     "geometry": [],
+     "placement": [],
+     "solve": []
+    },
+    "classes_cover_invalidation": true,
+    "exact": true
+   },
+   "incremental": {
+    "executed": [],
+    "reused": [
+     "BottomPlateInstance",
+     "PlateBody",
+     "PlateProfile",
+     "SpacerBackLeftInstance",
+     "SpacerBackRightInstance",
+     "SpacerBody",
+     "SpacerFrontRightInstance",
+     "SpacerProfile",
+     "TopPlateInstance"
+    ],
+    "executed_equals_invalidated": true,
+    "reused_equals_explained": true,
+    "reused_bytes_identical": true
+   },
+   "publication": {
+    "adopted_revision": "9ef270ec-1ac5-4546-b1ef-0e6d46dab1a5",
+    "matches_candidate": true,
+    "history_length": 2
+   },
+   "full_rebuild": {
+    "full_reused_nothing": true,
+    "all_equivalent": true,
+    "compared": 15,
+    "failures": {}
+   },
+   "verification": {
+    "verify-brep": "pass",
+    "verify-step": "pass"
+   },
+   "final_state": {
+    "probes": [
+     {
+      "point": [
+       -12,
+       -8,
+       10
+      ],
+      "inside": false,
+      "observed_inside": false,
+      "pass": true
+     },
+     {
+      "point": [
+       12,
+       -8,
+       10
+      ],
+      "inside": true,
+      "observed_inside": true,
+      "pass": true
+     }
+    ],
+    "probes_pass": true,
+    "bom": {
+     "SpacerBody": 3,
+     "PlateBody": 2
+    },
+    "bom_pass": true
+   },
+   "pass": true,
+   "seconds": 12.08
+  }
+ ]
+}
