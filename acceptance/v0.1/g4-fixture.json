@@ -1,0 +1,6 @@
+{
+ "graph_asset_sha256": "sha256:ba15c2265ae732f46b50d1eb26b8bb80088c0ec34e37276fdb6f13141db206fc",
+ "queries_sha256": "sha256:32d1b5d64f1780310862afb3137943eb4396a60f28ff235fd3348239e04c5a9d",
+ "independent_oracle_sha256": "sha256:18ffbb20e7b03133b9fc04b15e59b3c62c426abcf0375c6f487c2a54d002b8cf",
+ "identity": "SHA-256 of sorted-key compact JSON of each file's content"
+}

@@ -2,6 +2,7 @@
 
 mod compiler;
 mod feature_plan;
+mod invalidation;
 mod mechanical;
 mod model;
 mod sketch;
@@ -9,6 +10,7 @@ mod transaction;
 pub mod u64_string;
 mod validation;
 
+pub use invalidation::{changed_features, invalidation_plan, DependencyIndex, InvalidationPlan};
 pub use model::*;
 pub use sketch::*;
 pub use transaction::{apply_transaction, dirty_features};

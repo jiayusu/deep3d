@@ -1,0 +1,26 @@
+{
+ "observed_at": "2026-10-28T11:21:44+00:00",
+ "source_commit": "ea7c1c4",
+ "fixture": {
+  "graph_asset_sha256": "sha256:ba15c2265ae732f46b50d1eb26b8bb80088c0ec34e37276fdb6f13141db206fc",
+  "queries_sha256": "sha256:32d1b5d64f1780310862afb3137943eb4396a60f28ff235fd3348239e04c5a9d",
+  "independent_oracle_sha256": "sha256:18ffbb20e7b03133b9fc04b15e59b3c62c426abcf0375c6f487c2a54d002b8cf",
+  "identity": "SHA-256 of sorted-key compact JSON of each file's content"
+ },
+ "invalidation_performance": {
+  "status": "insufficient_evidence",
+  "evidence_ids": [
+   "measurement.json",
+   "machine.json"
+  ],
+  "machine_manifest_sha256": "sha256:2c602b00e474947f689069fd8028b5e6fc1128b844b178fcd0dc28c320ac641b",
+  "feature_nodes": 1000,
+  "measured_requests": 1000,
+  "exact_result_requests": 1000,
+  "p95_ms": 0.490729,
+  "quantile_method": "nearest_rank"
+ },
+ "threshold_met_on_this_machine": true,
+ "reused_index_p95_ms": 0.201531,
+ "cold_index_build_ms": 0.206025
+}

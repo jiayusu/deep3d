@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use uuid::Uuid;
 
@@ -144,56 +144,5 @@ pub fn apply_transaction(project: &Project, transaction: &Transaction) -> Result
 /// Names and hierarchy alone do not change feature geometry. This is an
 /// invalidation result, not a claim that every affected output changes bytes.
 pub fn dirty_features(old: &Project, new: &Project) -> BTreeSet<Uuid> {
-    if old.precision != new.precision {
-        return old
-            .features
-            .keys()
-            .chain(new.features.keys())
-            .copied()
-            .collect();
-    }
-    let changed_parameters: BTreeSet<_> = old
-        .parameters
-        .keys()
-        .chain(new.parameters.keys())
-        .copied()
-        .filter(|id| {
-            old.parameters.get(id).map(|p| &p.value) != new.parameters.get(id).map(|p| &p.value)
-        })
-        .collect();
-    let mut dirty: BTreeSet<_> = old
-        .features
-        .keys()
-        .chain(new.features.keys())
-        .copied()
-        .filter(|id| {
-            old.features.get(id).map(|f| &f.operation) != new.features.get(id).map(|f| &f.operation)
-        })
-        .collect();
-    let mut reverse: BTreeMap<Uuid, BTreeSet<Uuid>> = BTreeMap::new();
-    for project in [old, new] {
-        for (id, feature) in &project.features {
-            if !feature
-                .operation
-                .parameter_ids()
-                .is_disjoint(&changed_parameters)
-            {
-                dirty.insert(*id);
-            }
-            for input in feature.operation.dependencies() {
-                reverse.entry(input).or_default().insert(*id);
-            }
-        }
-    }
-    let mut pending: Vec<_> = dirty.iter().copied().collect();
-    while let Some(id) = pending.pop() {
-        if let Some(dependents) = reverse.get(&id) {
-            for dependent in dependents {
-                if dirty.insert(*dependent) {
-                    pending.push(*dependent);
-                }
-            }
-        }
-    }
-    dirty
+    crate::invalidation::invalidation_plan(old, new).dirty
 }
