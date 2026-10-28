@@ -43,18 +43,27 @@ fn io_error(error: impl std::fmt::Display) -> CoreError {
 
 fn python_path(explicit: Option<&Path>) -> Result<PathBuf> {
     if let Some(path) = explicit {
-        return path.canonicalize().map_err(io_error);
+        return interpreter_path(path);
     }
     for candidate in [".venv/Scripts/python.exe", ".venv/bin/python"] {
         let path = Path::new(candidate);
         if path.is_file() {
-            return path.canonicalize().map_err(io_error);
+            return interpreter_path(path);
         }
     }
     Err(CoreError::new(
         "PYTHON_NOT_CONFIGURED",
         "Run uv sync --frozen, or pass --python explicitly",
     ))
+}
+
+// Absolute but not canonical: resolving a virtual environment's interpreter symlink
+// would run the base interpreter without the environment's packages.
+fn interpreter_path(path: &Path) -> Result<PathBuf> {
+    if !path.is_file() {
+        return Err(CoreError::new("PYTHON_NOT_CONFIGURED", "Python interpreter not found"));
+    }
+    std::path::absolute(path).map_err(io_error)
 }
 
 fn file_bytes(path: &Path, maximum: u64) -> Result<Vec<u8>> {

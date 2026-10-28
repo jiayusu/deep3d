@@ -264,7 +264,10 @@ class TaskRunner:
         self.client = client
         self.root = root.resolve(strict=True)
         self.binary = binary.resolve(strict=True)
-        self.python = (python or Path(sys.executable)).resolve(strict=True)
+        # Absolute, not resolved: resolving a venv interpreter symlink drops its packages.
+        self.python = (python or Path(sys.executable)).absolute()
+        if not self.python.is_file():
+            raise FileNotFoundError(self.python)
         self.outbox = self.root / "runs" / ".worker-outbox"
         self.outbox.mkdir(parents=True, exist_ok=True)
 

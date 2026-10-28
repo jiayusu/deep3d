@@ -164,7 +164,10 @@ class _Runtime:
     def __init__(self, directory: Path, binary: Path, python: Path, provider: object):
         self.directory = directory
         self.binary = binary.resolve(strict=True)
-        self.python = python.resolve(strict=True)
+        # Absolute, not resolved: resolving a venv interpreter symlink drops its packages.
+        self.python = python.absolute()
+        if not self.python.is_file():
+            raise FileNotFoundError(self.python)
         self.provider = provider
         self.state: dict = {}
 

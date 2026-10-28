@@ -26,7 +26,7 @@ fn python() -> PathBuf {
         candidate.is_file(),
         "Run uv sync --frozen or set DEEP3D_TEST_PYTHON for real OCCT integration tests"
     );
-    candidate.canonicalize().unwrap()
+    std::path::absolute(candidate).unwrap()
 }
 
 fn process(args: &[&str]) -> Output {
