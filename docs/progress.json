@@ -1,23 +1,24 @@
 {
   "schema_version": "deep3d.progress/1",
-  "updated_at": "2026-10-27T15:41:44+00:00",
+  "updated_at": "2026-10-28T11:55:00+00:00",
   "project": "deep3d",
   "release": "0.3.0",
-  "source_commit": "26162a9",
+  "source_commit": "91c5ae8",
   "target_date": "2026-11-01",
-  "headline": "工程基础已建立，目标验收尚未达标。",
-  "focus": "接通目标版本与已验证提交",
-  "focus_stage": "03",
-  "focus_detail": "把用户要求、工程源、独立证据和公开版本绑定起来，让任务结果成为用户能够取得的可靠成果。",
+  "headline": "目标版本与公开验证提交已接通；G4 测量满足门槛但未冻结，V0.1 仍未达标。",
+  "focus": "分类失效与冻结变更案例",
+  "focus_stage": "04",
+  "focus_detail": "Feature 级失效解释、几何缓存复用和全量对照已在开发样例上跑通；下一步实现六类分类失效，并为 20 个变更准备独立种子与 oracle。",
   "autonomy": {
     "status": "failed",
     "label": "尚未启动",
     "detail": "G6 ≥2 小时 / LH-001 72 小时"
   },
   "next_actions": [
-    "实现 GoalRevision / PlanRevision，保存要求来源、验收条件与变更。",
-    "实现 VerifiedCommit / PublicHead，候选通过独立验证后才推进公开版本。",
-    "随后落地属性级失效、实际几何复用和全量重算对照。"
+    "实现 DefinitionDirty / GeometryDirty / PlacementDirty 等分类失效，使改名、移动实例不触发几何重算。",
+    "为 M01～M20 准备原生种子工程与独立 oracle，跑增量与全量对照并记录。",
+    "把自然语言规划入口接到 GoalRevision / PlanRevision；需要可用的模型服务凭据才能开始 G1 / G6。",
+    "由授权注册者冻结注册表与清单后，在约定机器上重跑 G4。"
   ],
   "gates": [
     {
@@ -41,24 +42,24 @@
       "title": "真实增量与结果一致",
       "status": "failed",
       "threshold": "20 个变更至少 18 个正确；依赖准确，结果与全量重算等价。",
-      "current": "已有保守依赖闭包，当前 Worker 仍全量求值。",
-      "missing": "属性级读写集、ActionCache、局部执行与独立全量对照。"
+      "current": "Feature 级失效解释（deep3d explain）、ActionCache 复用和无缓存全量几何对照已在开发样例回归通过。",
+      "missing": "六类分类失效、属性级读写集、20 个冻结变更的种子与独立 oracle 及正式执行。"
     },
     {
       "id": "G4",
       "title": "大图失效传播性能",
       "status": "insufficient_evidence",
       "threshold": "1,000 节点，P95 <100 ms；准确率 100%，排除实际 CAD。",
-      "current": "尚未按冻结机器、图种子和采样协议进行测量。",
-      "missing": "独立依赖 oracle、生产入口基准与原始时长记录。"
+      "current": "生产失效 API 在注册的 1,000 节点图上实测：1,000/1,000 与另算法 oracle 逐项一致，含索引重建 P95 约 0.49 ms（共享云容器）。",
+      "missing": "注册冻结、独立审阅的 oracle 和约定测试机；在此之前只能报告证据不足。"
     },
     {
       "id": "G5",
       "title": "中断与重复执行恢复",
       "status": "failed",
       "threshold": "5 类场景全部恢复；无重复发布，未验证候选不得公开。",
-      "current": "已有数据库租约、撤权、重试和回执恢复基础。",
-      "missing": "正式公开提交边界与 5 类冻结场景的完整证据。"
+      "current": "GoalRevision、VerifiedCommit 与 PublicHead 已落地：过期/失权/重复回写、两候选竞争和缺证据均不推进公开版本（PostgreSQL 回归）。",
+      "missing": "5 类冻结恢复场景的端到端执行，以及真实模型切换（R05）的证据。"
     },
     {
       "id": "G6",
@@ -97,9 +98,9 @@
     {
       "id": "03",
       "title": "目标与公开验证版本",
-      "status": "failed",
+      "status": "passed",
       "detail": "Goal / Plan 版本、独立条件、VerifiedCommit 与公开 Head。",
-      "scope": "当前下一实施单元。",
+      "scope": "Rust 权威层与 HTTP 入口工程回归通过（Linux PostgreSQL 16，11 项）；未接自然语言规划，未执行 G5 冻结场景。",
       "href": "docs/system-design-v1.md"
     },
     {
@@ -107,7 +108,7 @@
       "title": "真正的局部修改",
       "status": "failed",
       "detail": "属性读写集、分类失效、几何缓存、变更解释及全量对照。",
-      "scope": "已有设计，尚未接入实际增量执行。",
+      "scope": "变更解释、缓存复用与全量对照已有开发样例回归；分类失效与属性级读写集未实现。",
       "href": "docs/system-design-v1.md"
     },
     {
@@ -129,25 +130,25 @@
   ],
   "evidence": [
     {
-      "value": "32",
-      "label": "Windows CAD 集成",
-      "detail": "原生工程、计划求值、编辑与历史保留。",
+      "value": "65",
+      "label": "Linux Rust 工作区",
+      "detail": "含 PostgreSQL 16 上的运行时与项目权威测试。",
       "status": "passed",
       "href": "qualification/mechanical/README.md"
     },
     {
-      "value": "22",
-      "label": "Rust 存储协议",
-      "detail": "含实例 / BOM 篡改拒绝与原工程保护。",
+      "value": "366",
+      "label": "Linux Python / OCCT 回归",
+      "detail": "含新增增量执行与全量重建对照 4 项。",
       "status": "passed",
-      "href": "qualification/mechanical/README.md"
+      "href": "tests/test_incremental.py"
     },
     {
-      "value": "108",
-      "label": "Linux CAD 隔离回归",
-      "detail": "实体、草图、内核与既有法兰验证器。",
-      "status": "passed",
-      "href": "qualification/mechanical/README.md"
+      "value": "1000/1000",
+      "label": "G4 失效结果一致",
+      "detail": "含索引重建 P95 0.49 ms；注册未冻结，记为证据不足。",
+      "status": "insufficient_evidence",
+      "href": "qualification/g4/README.md"
     },
     {
       "value": "4",
@@ -159,22 +160,34 @@
   ],
   "blockers": [
     {
-      "title": "公开成果的权威边界尚未接齐",
-      "detail": "私有任务完成还不会推进正式用户分支，需接通目标、证据与公开提交。",
+      "title": "自然语言规划与长程任务缺少模型服务",
+      "detail": "本环境没有可用的模型提供方凭据，G1、G6 和 R05 无法产生真实证据。",
       "href": "docs/current-state.md"
     },
     {
-      "title": "缺少真正增量执行与独立对照",
-      "detail": "识别依赖后仍全量构建，尚不能通过 S4 / G3。",
+      "title": "分类失效与冻结变更案例未完成",
+      "detail": "Feature 级增量已可用，但改名/移动等仍缺分类处理，20 个变更没有独立种子与 oracle。",
       "href": "docs/system-design-v1.md"
     },
     {
       "title": "正式验收与分发条件仍缺证据",
-      "detail": "独立检测器、干净复现、根项目许可与草图依赖分发边界尚待落实。",
+      "detail": "注册冻结、另一开发者干净复现、根项目许可与草图依赖分发边界尚待落实。",
       "href": "docs/third-party-dependencies.md"
     }
   ],
   "history": [
+    {
+      "date": "2026-10-28",
+      "title": "Linux 修复、G4 实测与增量对照",
+      "detail": "修复虚拟环境解释器被解析为系统 Python 的问题；新增带原因边的失效 API、deep3d explain、1,000 节点 G4 测量和 ActionCache 全量对照回归；Rust 65 项、Python 366 项通过。",
+      "href": "qualification/g4/README.md"
+    },
+    {
+      "date": "2026-10-28",
+      "title": "目标版本与公开验证提交",
+      "detail": "GoalRevision、PlanRevision、VerifiedCommit 与 PublicHead 进入 PostgreSQL；只有新鲜独立验证通过的最终任务才能推进公开版本。",
+      "href": "https://github.com/jiayusu/deep3d/commit/085681c"
+    },
     {
       "date": "2026-10-27",
       "title": "建立项目进度看板",

@@ -26,6 +26,8 @@ New-Item -ItemType Directory -Path artifacts/project-example -Force | Out-Null
 
 Windows 的 `scripts/cargo.ps1` 自动查找 Visual Studio 开发环境；Linux 可直接运行 `cargo build --workspace --locked`。`evaluate` 从当前工作目录的 `.venv` 查找 Python，其他位置用 `--python` 指定。
 
+增量求值：`evaluate --cache-dir DIR` 复用内容寻址的 Feature BREP（命中前校验动作键、引擎身份与字节摘要，损坏即报 `CACHE_CORRUPT`，只有独立验证通过的求值才写入新条目）；`--force-rebuild` 不读缓存，用于全量对照。`explain --project P --from REVISION [--to REVISION]` 列出两版之间定义变化、失效、复用和删除的 Feature 及每个失效 Feature 的失效输入。失效目前按 Feature 粒度：参数或操作定义变化及其下游失效，改名和层级调整不失效；六类分类失效尚未实现。
+
 所有成功/错误均返回 JSON；失败返回码为 2。目标工程的父目录必须存在。新建工程、计划输出、求值目录与导出文件都拒绝覆盖既有内容。
 
 完整演示可直接运行：
