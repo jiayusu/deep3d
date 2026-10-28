@@ -61,7 +61,10 @@ fn python_path(explicit: Option<&Path>) -> Result<PathBuf> {
 // would run the base interpreter without the environment's packages.
 fn interpreter_path(path: &Path) -> Result<PathBuf> {
     if !path.is_file() {
-        return Err(CoreError::new("PYTHON_NOT_CONFIGURED", "Python interpreter not found"));
+        return Err(CoreError::new(
+            "PYTHON_NOT_CONFIGURED",
+            "Python interpreter not found",
+        ));
     }
     std::path::absolute(path).map_err(io_error)
 }
@@ -256,7 +259,9 @@ pub fn evaluate(
         .stdout(log.try_clone().map_err(io_error)?)
         .stderr(log);
     if let Some(cache) = cache_dir {
-        command.arg("--cache-dir").arg(std::path::absolute(cache).map_err(io_error)?);
+        command
+            .arg("--cache-dir")
+            .arg(std::path::absolute(cache).map_err(io_error)?);
     }
     if force_rebuild {
         command.arg("--force-rebuild");

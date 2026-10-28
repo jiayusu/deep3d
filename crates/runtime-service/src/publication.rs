@@ -41,7 +41,10 @@ fn report_bytes(path: &Path) -> Result<Vec<u8>> {
         .read_to_end(&mut bytes)
         .map_err(io)?;
     if bytes.is_empty() || bytes.len() > 8 * 1024 * 1024 {
-        return Err(CoreError::new("EVIDENCE_INVALID", "Verifier report is not bounded"));
+        return Err(CoreError::new(
+            "EVIDENCE_INVALID",
+            "Verifier report is not bounded",
+        ));
     }
     Ok(bytes)
 }
@@ -59,27 +62,44 @@ fn persist_report(root: &Path, bytes: &[u8]) -> Result<String> {
             return Err(io(cause.error));
         }
         if report_bytes(&target)? != bytes {
-            return Err(CoreError::new("ARTIFACT_CORRUPT", "Evidence object identity collision"));
+            return Err(CoreError::new(
+                "ARTIFACT_CORRUPT",
+                "Evidence object identity collision",
+            ));
         }
     }
     #[cfg(unix)]
-    File::open(&objects).and_then(|file| file.sync_all()).map_err(io)?;
+    File::open(&objects)
+        .and_then(|file| file.sync_all())
+        .map_err(io)?;
     Ok(digest)
 }
 
 pub fn read_report(root: &Path, digest: &str) -> Result<Value> {
     if !valid_hash(digest) {
-        return Err(CoreError::new("EVIDENCE_INVALID", "Invalid evidence digest"));
+        return Err(CoreError::new(
+            "EVIDENCE_INVALID",
+            "Invalid evidence digest",
+        ));
     }
     let path = artifacts::relative_file(root, &format!("objects/{}.json", &digest[7..]))?;
     let bytes = report_bytes(&path)?;
     if digest_bytes(&bytes) != digest {
-        return Err(CoreError::new("ARTIFACT_CORRUPT", "Public evidence object changed"));
+        return Err(CoreError::new(
+            "ARTIFACT_CORRUPT",
+            "Public evidence object changed",
+        ));
     }
-    serde_json::from_slice(&bytes).map_err(|_| CoreError::new("EVIDENCE_INVALID", "Invalid evidence JSON"))
+    serde_json::from_slice(&bytes)
+        .map_err(|_| CoreError::new("EVIDENCE_INVALID", "Invalid evidence JSON"))
 }
 
-fn copy_artifact(store: &ProjectStore, record: &Materialization, name: &str, out: &Path) -> Result<()> {
+fn copy_artifact(
+    store: &ProjectStore,
+    record: &Materialization,
+    name: &str,
+    out: &Path,
+) -> Result<()> {
     let reference = record.files.get(name).ok_or_else(|| {
         CoreError::new("EVIDENCE_INVALID", format!("Missing verifier input {name}"))
     })?;
@@ -107,33 +127,60 @@ fn run_verifier(
     let mut command = Command::new(python);
     command.arg("-m");
     if mechanical {
-        command.args(["deep3d_cad.mechanical_verifier", "--directory"])
-            .arg(directory).args(["--stage", stage]);
+        command
+            .args(["deep3d_cad.mechanical_verifier", "--directory"])
+            .arg(directory)
+            .args(["--stage", stage]);
     } else {
-        command.arg("deep3d_cad.worker")
-            .arg(if stage == "native" {"verify-brep"} else {"verify-step"})
-            .arg("--spec").arg(directory.join("goal.json"))
-            .arg("--precision").arg(directory.join("precision.json"))
-            .arg("--shape").arg(directory.join(if stage == "native" {"flange.brep"} else {"flange.step"}));
+        command
+            .arg("deep3d_cad.worker")
+            .arg(if stage == "native" {
+                "verify-brep"
+            } else {
+                "verify-step"
+            })
+            .arg("--spec")
+            .arg(directory.join("goal.json"))
+            .arg("--precision")
+            .arg(directory.join("precision.json"))
+            .arg("--shape")
+            .arg(directory.join(if stage == "native" {
+                "flange.brep"
+            } else {
+                "flange.step"
+            }));
     }
-    command.arg("--report").arg(&report)
-        .stdin(Stdio::null()).stdout(log.try_clone().map_err(io)?).stderr(log);
+    command
+        .arg("--report")
+        .arg(&report)
+        .stdin(Stdio::null())
+        .stdout(log.try_clone().map_err(io)?)
+        .stderr(log);
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000);
     }
     let mut child = command.spawn().map_err(|_| {
-        CoreError::new("VERIFIER_UNAVAILABLE", "Configure DEEP3D_VERIFIER_PYTHON with the locked CAD environment")
+        CoreError::new(
+            "VERIFIER_UNAVAILABLE",
+            "Configure DEEP3D_VERIFIER_PYTHON with the locked CAD environment",
+        )
     })?;
     let status = child.wait_timeout(Duration::from_secs(120)).map_err(io)?;
     let Some(status) = status else {
         let _ = child.kill();
         let _ = child.wait();
-        return Err(CoreError::new("VERIFIER_TIMEOUT", "Public geometry verification exceeded its deadline"));
+        return Err(CoreError::new(
+            "VERIFIER_TIMEOUT",
+            "Public geometry verification exceeded its deadline",
+        ));
     };
     if !status.success() {
-        return Err(CoreError::new("PUBLICATION_REJECTED", "Fresh coordinator geometry verification did not pass"));
+        return Err(CoreError::new(
+            "PUBLICATION_REJECTED",
+            "Fresh coordinator geometry verification did not pass",
+        ));
     }
     let bytes = report_bytes(&report)?;
     let value: Value = serde_json::from_slice(&bytes)
@@ -144,25 +191,43 @@ fn run_verifier(
         (false, "native") => "flange.brep",
         (false, _) => "flange.step",
     };
-    let checks = value["checks"].as_array().ok_or_else(|| {
-        CoreError::new("EVIDENCE_INVALID", "Verifier returned no check results")
-    })?;
-    let expected_schema = if mechanical {"deep3d.mechanical-verification/1"} else {"deep3d.flange-verification/1"};
-    if value["status"] != "pass" || value["stage"] != stage
+    let checks = value["checks"]
+        .as_array()
+        .ok_or_else(|| CoreError::new("EVIDENCE_INVALID", "Verifier returned no check results"))?;
+    let expected_schema = if mechanical {
+        "deep3d.mechanical-verification/1"
+    } else {
+        "deep3d.flange-verification/1"
+    };
+    if value["status"] != "pass"
+        || value["stage"] != stage
         || value["schema_version"] != expected_schema
         || value["input_artifact_sha256"] != record.files[geometry].sha256
-        || canonical_bytes(&value["expected_spec"])? != canonical_bytes(&goal.definition.acceptance)?
-        || canonical_bytes(&value["precision_profile"])? != canonical_bytes(&goal.definition.precision)?
-        || checks.is_empty() || checks.iter().any(|c| c["status"] != "pass")
-        || !value["validator_source_sha256"].as_str().is_some_and(valid_hash)
+        || canonical_bytes(&value["expected_spec"])?
+            != canonical_bytes(&goal.definition.acceptance)?
+        || canonical_bytes(&value["precision_profile"])?
+            != canonical_bytes(&goal.definition.precision)?
+        || checks.is_empty()
+        || checks.iter().any(|c| c["status"] != "pass")
+        || !value["validator_source_sha256"]
+            .as_str()
+            .is_some_and(valid_hash)
     {
-        return Err(CoreError::new("EVIDENCE_INVALID", "Fresh evidence is not bound to this Goal and geometry"));
+        return Err(CoreError::new(
+            "EVIDENCE_INVALID",
+            "Fresh evidence is not bound to this Goal and geometry",
+        ));
     }
-    if mechanical && stage == "native"
-        && (canonical_bytes(&value["input_node_artifact_sha256"])? != canonical_bytes(&record.node_outputs)?
+    if mechanical
+        && stage == "native"
+        && (canonical_bytes(&value["input_node_artifact_sha256"])?
+            != canonical_bytes(&record.node_outputs)?
             || value["input_assembly_artifact_sha256"] != record.files["assembly.json"].sha256)
     {
-        return Err(CoreError::new("EVIDENCE_INVALID", "Fresh node or assembly evidence is unbound"));
+        return Err(CoreError::new(
+            "EVIDENCE_INVALID",
+            "Fresh node or assembly evidence is unbound",
+        ));
     }
     Ok(bytes)
 }
@@ -176,23 +241,37 @@ pub fn verify(
     let source = artifacts::relative_file(root, &output.source.path)?;
     let bytes = artifacts::read_package(&source)?;
     if digest_bytes(&bytes) != output.source.sha256 {
-        return Err(CoreError::new("ARTIFACT_CORRUPT", "Candidate source no longer matches its identity"));
+        return Err(CoreError::new(
+            "ARTIFACT_CORRUPT",
+            "Candidate source no longer matches its identity",
+        ));
     }
     let file = artifacts::temporary(root, &bytes)?;
     let store = ProjectStore::open(file.path())?;
     let snapshot = store.head()?;
     if snapshot.project.project_id != goal.project_id || snapshot.head != output.source.head {
-        return Err(CoreError::new("PUBLICATION_REJECTED", "Candidate project or revision differs"));
+        return Err(CoreError::new(
+            "PUBLICATION_REJECTED",
+            "Candidate project or revision differs",
+        ));
     }
     let plan = snapshot.project.compile(snapshot.revision.id)?;
     if canonical_bytes(&plan.acceptance)? != canonical_bytes(&goal.definition.acceptance)?
         || canonical_bytes(&plan.precision)? != canonical_bytes(&goal.definition.precision)?
     {
-        return Err(CoreError::new("GOAL_MISMATCH", "Candidate does not implement the frozen independent Goal contract"));
+        return Err(CoreError::new(
+            "GOAL_MISMATCH",
+            "Candidate does not implement the frozen independent Goal contract",
+        ));
     }
-    let record = store.materializations(snapshot.revision.id)?.into_iter()
-        .find(|(hash, _)| hash == &output.materialization).map(|(_, record)| record)
-        .ok_or_else(|| CoreError::new("EVIDENCE_INVALID", "Candidate has no bound materialization"))?;
+    let record = store
+        .materializations(snapshot.revision.id)?
+        .into_iter()
+        .find(|(hash, _)| hash == &output.materialization)
+        .map(|(_, record)| record)
+        .ok_or_else(|| {
+            CoreError::new("EVIDENCE_INVALID", "Candidate has no bound materialization")
+        })?;
     let mechanical = matches!(plan.acceptance, Acceptance::Mechanical(_));
     let verification = root.join("verification");
     fs::create_dir_all(&verification).map_err(io)?;
@@ -203,7 +282,12 @@ pub fn verify(
     let (native_name, step_name) = if mechanical {
         copy_artifact(&store, &record, "assembly.json", directory.path())?;
         for node in plan.outputs.keys() {
-            copy_artifact(&store, &record, &format!("nodes/{node}.brep"), directory.path())?;
+            copy_artifact(
+                &store,
+                &record,
+                &format!("nodes/{node}.brep"),
+                directory.path(),
+            )?;
         }
         ("model.brep", "model.step")
     } else {
@@ -212,10 +296,20 @@ pub fn verify(
     for name in [native_name, step_name] {
         copy_artifact(&store, &record, name, directory.path())?;
     }
-    let native = run_verifier(python, directory.path(), mechanical, "native", &record, goal)?;
+    let native = run_verifier(
+        python,
+        directory.path(),
+        mechanical,
+        "native",
+        &record,
+        goal,
+    )?;
     let step = run_verifier(python, directory.path(), mechanical, "step", &record, goal)?;
     if record.files[step_name].sha256 != output.step_sha256 {
-        return Err(CoreError::new("EVIDENCE_INVALID", "STEP identity differs from the accepted candidate"));
+        return Err(CoreError::new(
+            "EVIDENCE_INVALID",
+            "STEP identity differs from the accepted candidate",
+        ));
     }
     Ok(PublicationEvidence {
         schema_version: "deep3d.publication-evidence/1".into(),

@@ -71,9 +71,14 @@ impl IntoResponse for ApiError {
             | "CONTROL_CONFLICT"
             | "STALE_EXECUTION_LEASE"
             | "RUN_TERMINAL"
-            | "TASK_ALREADY_COMPLETED" | "GOAL_CONFLICT" | "PUBLIC_HEAD_CONFLICT"
-            | "GOAL_MISMATCH" | "GOAL_UNRESOLVED" | "PROJECT_CONFLICT"
-            | "PUBLICATION_CONFLICT" | "PUBLIC_NOT_READY" => StatusCode::CONFLICT,
+            | "TASK_ALREADY_COMPLETED"
+            | "GOAL_CONFLICT"
+            | "PUBLIC_HEAD_CONFLICT"
+            | "GOAL_MISMATCH"
+            | "GOAL_UNRESOLVED"
+            | "PROJECT_CONFLICT"
+            | "PUBLICATION_CONFLICT"
+            | "PUBLIC_NOT_READY" => StatusCode::CONFLICT,
             "DATABASE_UNAVAILABLE"
             | "DATABASE_BUSY"
             | "COMMIT_OUTCOME_UNKNOWN"
@@ -305,7 +310,8 @@ async fn complete(
             // rechecks the complete fencing tuple after pause, cancellation or expiry.
             let evidence = if let Some(binding) = &run.spec.authority {
                 if binding.publish_task == request.lease.task_key {
-                    let goal = repository.get_goal(run.spec.project_id, binding.goal_revision_id)?;
+                    let goal =
+                        repository.get_goal(run.spec.project_id, binding.goal_revision_id)?;
                     Some(publication::verify(&root, &python, &goal, &output)?)
                 } else {
                     None
@@ -313,7 +319,12 @@ async fn complete(
             } else {
                 None
             };
-            repository.complete_with_publication(&request.lease, &output, &digest, evidence.as_ref())
+            repository.complete_with_publication(
+                &request.lease,
+                &output,
+                &digest,
+                evidence.as_ref(),
+            )
         })
         .await?,
     ))
@@ -424,10 +435,22 @@ async fn execute(cli: Cli) -> Result<()> {
         .route("/v1/projects/{id}/goals", post(authority_http::update_goal))
         .route("/v1/projects/{id}/goals/{goal}", get(authority_http::goal))
         .route("/v1/projects/{id}/plans/{run}", get(authority_http::plan))
-        .route("/v1/projects/{id}/commits/{commit}", get(authority_http::commit))
-        .route("/v1/projects/{id}/public/artifacts/{kind}", get(authority_http::public_artifact))
-        .route("/v1/projects/{id}/commits/{commit}/artifacts/{kind}", get(authority_http::commit_artifact))
-        .route("/v1/projects/{id}/commits/{commit}/evidence/{stage}", get(authority_http::evidence))
+        .route(
+            "/v1/projects/{id}/commits/{commit}",
+            get(authority_http::commit),
+        )
+        .route(
+            "/v1/projects/{id}/public/artifacts/{kind}",
+            get(authority_http::public_artifact),
+        )
+        .route(
+            "/v1/projects/{id}/commits/{commit}/artifacts/{kind}",
+            get(authority_http::commit_artifact),
+        )
+        .route(
+            "/v1/projects/{id}/commits/{commit}/evidence/{stage}",
+            get(authority_http::evidence),
+        )
         .route("/v1/runs", post(submit))
         .route("/v1/runs/{id}", get(run))
         .route("/v1/runs/{id}/events", get(events))
