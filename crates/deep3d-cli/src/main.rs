@@ -93,6 +93,16 @@ enum Action {
         #[arg(long)]
         project: PathBuf,
     },
+    /// Explain which Features an edit invalidates and why, between two revisions.
+    Explain {
+        #[arg(long)]
+        project: PathBuf,
+        #[arg(long)]
+        from: Uuid,
+        /// Defaults to the current head.
+        #[arg(long)]
+        to: Option<Uuid>,
+    },
     /// Compile definitions to an explicit typed OCCT execution plan.
     Plan {
         #[arg(long)]
@@ -174,6 +184,50 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
 
 fn snapshot(store: &ProjectStore, revision: Option<Uuid>) -> Result<Snapshot> {
     revision.map_or_else(|| store.head(), |id| store.read_revision(id))
+}
+
+fn explain(old: &Snapshot, new: &Snapshot) -> Result<Value> {
+    let plan = core_domain::invalidation_plan(&old.project, &new.project);
+    let name = |id: &Uuid| {
+        new.project
+            .features
+            .get(id)
+            .or_else(|| old.project.features.get(id))
+            .map(|feature| feature.name.clone())
+    };
+    let features = |ids: &mut dyn Iterator<Item = &Uuid>| -> Vec<Value> {
+        ids.map(|id| json!({"id": id, "name": name(id)})).collect()
+    };
+    let reused: Vec<&Uuid> = new
+        .project
+        .features
+        .keys()
+        .filter(|id| !plan.dirty.contains(id))
+        .collect();
+    let removed: Vec<&Uuid> = old
+        .project
+        .features
+        .keys()
+        .filter(|id| !new.project.features.contains_key(id))
+        .collect();
+    let reasons: Vec<Value> = plan
+        .reasons
+        .iter()
+        .map(|(id, inputs)| {
+            json!({"feature": {"id": id, "name": name(id)}, "invalidated_inputs": features(&mut inputs.iter())})
+        })
+        .collect();
+    Ok(json!({
+        "schema_version": "deep3d.invalidation-explanation/1",
+        "from_revision": old.revision.id,
+        "to_revision": new.revision.id,
+        "precision_changed": old.project.precision != new.project.precision,
+        "changed": features(&mut plan.seeds.iter()),
+        "dirty": features(&mut plan.dirty.iter()),
+        "reused": features(&mut reused.into_iter()),
+        "removed": features(&mut removed.into_iter()),
+        "reasons": reasons,
+    }))
 }
 
 fn json_value<T: serde::Serialize>(value: T) -> Result<Value> {
@@ -273,6 +327,12 @@ fn execute(action: Action) -> Result<Value> {
             &materialization,
         )?),
         Action::History { project } => json_value(ProjectStore::open(project)?.history()?),
+        Action::Explain { project, from, to } => {
+            let store = ProjectStore::open(project)?;
+            let old = store.read_revision(from)?;
+            let new = snapshot(&store, to)?;
+            explain(&old, &new)
+        }
         Action::Plan {
             project,
             revision,
