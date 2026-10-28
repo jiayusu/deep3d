@@ -1,24 +1,24 @@
 {
   "schema_version": "deep3d.progress/1",
-  "updated_at": "2026-10-28T12:25:00+00:00",
+  "updated_at": "2026-10-28T13:50:00+00:00",
   "project": "deep3d",
   "release": "0.3.0",
-  "source_commit": "b933147",
+  "source_commit": "1a4e049",
   "target_date": "2026-11-01",
-  "headline": "20 个变更案例已实际执行（草案，19/20）；G3、G4 证据不足，V0.1 仍未达标。",
-  "focus": "冲突证据与独立冻结",
+  "headline": "G3 草案 20/20、G5 真实进程 4/5（R05 缺模型）；G3～G5 证据不足，V0.1 仍未达标。",
+  "focus": "独立冻结与模型接入",
   "focus_stage": "06",
-  "focus_detail": "局部修改已在 C01～C10 种子上跑通；下一步为冲突要求输出几何证据，并请独立审阅者复核种子与 oracle 后冻结注册。",
+  "focus_detail": "增量、性能和恢复都已有实测；剩下的是独立审阅后冻结注册，以及接入真实模型服务完成 G1、G6 与 R05。",
   "autonomy": {
     "status": "failed",
     "label": "尚未启动",
     "detail": "G6 ≥2 小时 / LH-001 72 小时"
   },
   "next_actions": [
-    "为冲突要求输出几何证据（孔相交、出界、壁厚不足），补齐 M18。",
-    "由独立审阅者复核 C01～C10 种子、角色绑定与 oracle，冻结注册表和清单。",
-    "把 G5 五类恢复场景接到公开提交边界上端到端执行。",
-    "接入可用的模型服务后，把自然语言入口接到 GoalRevision，开始 G1 / G6。"
+    "由独立审阅者复核种子、角色绑定、oracle 与恢复场景驱动，冻结注册表和清单。",
+    "接入可用的模型服务，把自然语言入口接到 GoalRevision / PlanRevision，开始 G1。",
+    "在模型可用后执行 R05 的真实模型切换和 ≥2 小时的 G6 任务。",
+    "整理统一交付包，请另一开发者在干净环境复现（G7）。"
   ],
   "gates": [
     {
@@ -42,8 +42,8 @@
       "title": "真实增量与结果一致",
       "status": "insufficient_evidence",
       "threshold": "20 个变更至少 18 个正确；依赖准确，结果与全量重算等价。",
-      "current": "草案 20 个变更实测 19 个通过：18 个有效变更失效、执行、复用与全量重建全部一致；M19 正确拒绝。",
-      "missing": "M18 的几何冲突证据、独立审阅的种子与 oracle、注册冻结；10 个自然语言案例仍以类型化 IR 执行。"
+      "current": "草案 20 个变更全部通过：18 个有效变更与全量重建一致，M18/M19 正确拒绝，M18 给出几何冲突证据。",
+      "missing": "独立审阅的种子与 oracle、注册冻结；10 个自然语言案例仍以类型化 IR 执行。"
     },
     {
       "id": "G4",
@@ -56,10 +56,10 @@
     {
       "id": "G5",
       "title": "中断与重复执行恢复",
-      "status": "failed",
+      "status": "insufficient_evidence",
       "threshold": "5 类场景全部恢复；无重复发布，未验证候选不得公开。",
-      "current": "GoalRevision、VerifiedCommit 与 PublicHead 已落地：过期/失权/重复回写、两候选竞争和缺证据均不推进公开版本（PostgreSQL 回归）。",
-      "missing": "5 类冻结恢复场景的端到端执行，以及真实模型切换（R05）的证据。"
+      "current": "真实协调服务、数据库和 CAD Worker 上 R01～R04 通过；R05 的服务重启/超时部分通过。",
+      "missing": "R05 的真实模型切换（无模型凭据）、独立审阅与注册冻结。"
     },
     {
       "id": "G6",
@@ -124,17 +124,24 @@
       "title": "验收、交付与长程",
       "status": "failed",
       "detail": "冻结 G1～G7、统一成果包、独立复现；再执行 LH-001。",
-      "scope": "G3 草案案例已执行（19/20），G4 已测量；注册仍未冻结，未执行正式验收。",
+      "scope": "G3 草案 20/20、G4 已测量、G5 4/5 已执行；注册仍未冻结，未执行正式验收。",
       "href": "docs/acceptance-protocol-v0.1.md"
     }
   ],
   "evidence": [
     {
-      "value": "19/20",
+      "value": "20/20",
       "label": "G3 变更案例",
-      "detail": "18 个有效变更与全量重建一致；M18 缺冲突证据。草案，记为证据不足。",
+      "detail": "18 个有效变更与全量重建一致，2 个冲突/悬空引用正确拒绝。草案，记为证据不足。",
       "status": "insufficient_evidence",
       "href": "qualification/g3/README.md"
+    },
+    {
+      "value": "4/5",
+      "label": "G5 恢复场景",
+      "detail": "真实进程上 R01～R04 通过；R05 缺真实模型切换。",
+      "status": "insufficient_evidence",
+      "href": "qualification/g5/README.md"
     },
     {
       "value": "1000/1000",
@@ -144,38 +151,43 @@
       "href": "qualification/g4/README.md"
     },
     {
-      "value": "68",
-      "label": "Linux Rust 工作区",
-      "detail": "含 PostgreSQL 16 上的运行时与项目权威测试。",
+      "value": "70 / 374",
+      "label": "Rust / Python 回归",
+      "detail": "Linux 云容器，含 PostgreSQL 16 与 G5 真实进程回归。",
       "status": "passed",
       "href": "qualification/mechanical/README.md"
-    },
-    {
-      "value": "371",
-      "label": "Linux Python / OCCT 回归",
-      "detail": "含增量执行、全量对照与变更运行器回归。",
-      "status": "passed",
-      "href": "tests/test_g3_changes.py"
     }
   ],
   "blockers": [
     {
       "title": "自然语言规划与长程任务缺少模型服务",
-      "detail": "本环境没有可用的模型提供方凭据，G1、G6 和 R05 无法产生真实证据。",
+      "detail": "本环境没有可用的模型提供方凭据，G1、G6 和 R05 的模型切换无法产生真实证据。",
       "href": "docs/current-state.md"
     },
     {
-      "title": "G3 / G4 证据尚未独立冻结",
-      "detail": "种子、角色绑定和 oracle 由同一作者编写，M18 缺几何冲突证据；需要独立审阅与冻结。",
-      "href": "qualification/g3/README.md"
+      "title": "G3～G5 证据尚未独立冻结",
+      "detail": "种子、角色绑定、oracle 和场景驱动由同一作者编写；需要独立审阅与冻结注册。",
+      "href": "acceptance/v0.1/registry.draft.json"
     },
     {
       "title": "正式验收与分发条件仍缺证据",
-      "detail": "注册冻结、另一开发者干净复现、根项目许可与草图依赖分发边界尚待落实。",
+      "detail": "另一开发者干净复现、根项目许可与草图依赖分发边界尚待落实。",
       "href": "docs/third-party-dependencies.md"
     }
   ],
   "history": [
+    {
+      "date": "2026-10-28",
+      "title": "恢复场景真实进程执行",
+      "detail": "真实协调服务、PostgreSQL 与 CAD Worker 上注入 Worker 硬杀、回执丢失、旧 Attempt 迟到回写、目标变更与并发候选、服务重启：R01～R04 通过，R05 缺模型切换；修复 Worker 不接受孔要求验收的缺陷。",
+      "href": "qualification/g5/README.md"
+    },
+    {
+      "date": "2026-10-28",
+      "title": "孔要求与目标冲突证据",
+      "detail": "验收可要求沿 z 的贯穿孔与最小壁厚；矛盾要求在设定目标时以孔相交、出界、壁厚不足拒绝，独立验证器测量实际圆柱孔面。G3 草案达到 20/20。",
+      "href": "qualification/g3/README.md"
+    },
     {
       "date": "2026-10-28",
       "title": "执行 20 个注册变更案例",
