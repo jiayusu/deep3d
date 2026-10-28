@@ -215,6 +215,14 @@ impl Project {
                 self.positive(radius)?;
                 self.coordinate(coordinate)?;
             }
+            EdgeSelector::LineParallelInPlane {
+                direction,
+                coordinate,
+                ..
+            } => {
+                axis(direction)?;
+                self.coordinate(coordinate)?;
+            }
         }
         Ok(())
     }

@@ -1,5 +1,6 @@
 mod bridge;
 
+use std::collections::BTreeSet;
 use std::fs::OpenOptions;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -217,8 +218,29 @@ fn explain(old: &Snapshot, new: &Snapshot) -> Result<Value> {
             json!({"feature": {"id": id, "name": name(id)}, "invalidated_inputs": features(&mut inputs.iter())})
         })
         .collect();
+    let classes = core_domain::classify(&old.project, &new.project, &plan);
+    let nodes = |ids: &BTreeSet<Uuid>| -> Vec<Value> {
+        ids.iter()
+            .map(|id| {
+                let node = new
+                    .project
+                    .nodes
+                    .get(id)
+                    .or_else(|| old.project.nodes.get(id));
+                json!({"id": id, "name": node.map(|n| n.name.clone())})
+            })
+            .collect()
+    };
     Ok(json!({
         "schema_version": "deep3d.invalidation-explanation/1",
+        "classes": {
+            "definition": features(&mut classes.definition.iter()),
+            "solve": features(&mut classes.solve.iter()),
+            "geometry": features(&mut classes.geometry.iter()),
+            "placement": features(&mut classes.placement.iter()),
+            "delivery": nodes(&classes.delivery),
+            "evidence": nodes(&classes.evidence),
+        },
         "from_revision": old.revision.id,
         "to_revision": new.revision.id,
         "precision_changed": old.project.precision != new.project.precision,

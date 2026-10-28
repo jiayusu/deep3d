@@ -172,6 +172,7 @@ def _selector(value: Any) -> dict:
             "line_parallel",
             "plane",
             "circle",
+            "line_parallel_in_plane",
         }
     ):
         raise _error("SELECTOR_INVALID", "Unsupported semantic edge selector")
@@ -183,12 +184,16 @@ def _selector(value: Any) -> dict:
         fields |= {"axis", "coordinate_mm"}
     elif kind == "circle":
         fields |= {"radius_mm", "axis", "coordinate_mm"}
+    elif kind == "line_parallel_in_plane":
+        fields |= {"direction", "axis", "coordinate_mm"}
     _object(value, fields, "EdgeSelector")
     if type(value["expected_count"]) is not int or not 1 <= value["expected_count"] <= 4096:
         raise _error("SELECTOR_INVALID", "expected_count requires 1..4096 edges")
     if kind == "line_parallel":
         _vector(value["axis"], "selector axis", unit=True)
-    elif kind in {"plane", "circle"}:
+    if kind == "line_parallel_in_plane":
+        _vector(value["direction"], "selector direction", unit=True)
+    if kind in {"plane", "circle", "line_parallel_in_plane"}:
         if not isinstance(value["axis"], str) or value["axis"] not in _AXES:
             raise _error("SELECTOR_INVALID", "Plane/circle axis must be x, y or z")
         if abs(_number(value["coordinate_mm"], "selector coordinate")) > 1000:
@@ -455,6 +460,13 @@ def _select_edges(shape, selector: dict, precision: PrecisionProfile):
         matched = kind == "all_edges"
         if kind == "line_parallel" and curve_type == GeomAbs_Line:
             matched = _parallel(direction, selector["axis"])
+        elif kind == "line_parallel_in_plane" and curve_type == GeomAbs_Line:
+            axis_index = "xyz".index(selector["axis"])
+            matched = (
+                _parallel(direction, selector["direction"])
+                and abs(direction[axis_index]) <= _AXIS_TOL
+                and abs(location[axis_index] - selector["coordinate_mm"]) <= tolerance
+            )
         elif kind in {"plane", "circle"} and curve_type in {GeomAbs_Line, GeomAbs_Circle}:
             axis = _AXES[selector["axis"]]
             axis_index = "xyz".index(selector["axis"])

@@ -41,6 +41,14 @@ impl Project {
             } => {
                 json!({"kind":"circle","radius_mm":self.resolve_length(radius)?,"axis":axis,"coordinate_mm":self.resolve_length(coordinate)?,"expected_count":expected_count})
             }
+            EdgeSelector::LineParallelInPlane {
+                direction,
+                axis,
+                coordinate,
+                expected_count,
+            } => {
+                json!({"kind":"line_parallel_in_plane","direction":direction,"axis":axis,"coordinate_mm":self.resolve_length(coordinate)?,"expected_count":expected_count})
+            }
         })
     }
 

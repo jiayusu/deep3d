@@ -152,6 +152,71 @@ pub fn invalidation_plan(old: &Project, new: &Project) -> InvalidationPlan {
     DependencyIndex::from_projects(&[old, new]).invalidate(&changed_features(old, new))
 }
 
+/// Invalidation split by what has to happen, per the system design's change
+/// classes. Every set holds Feature ids except `delivery` and `evidence`,
+/// which hold scene node ids.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+pub struct ChangeClasses {
+    /// Features whose own definition (operation or bound parameter) changed.
+    pub definition: BTreeSet<Uuid>,
+    /// Constrained sketches that must be re-solved.
+    pub solve: BTreeSet<Uuid>,
+    /// Features whose local shape must be recomputed.
+    pub geometry: BTreeSet<Uuid>,
+    /// Rigid placements that move an unchanged shape; the shared part
+    /// definition is not recomputed.
+    pub placement: BTreeSet<Uuid>,
+    /// Nodes whose name, parent, binding or existence changed (scene/BOM/STEP).
+    pub delivery: BTreeSet<Uuid>,
+    /// Nodes whose earlier verification no longer applies.
+    pub evidence: BTreeSet<Uuid>,
+}
+
+pub fn classify(old: &Project, new: &Project, plan: &InvalidationPlan) -> ChangeClasses {
+    let mut classes = ChangeClasses {
+        definition: plan.seeds.clone(),
+        ..ChangeClasses::default()
+    };
+    for id in &plan.dirty {
+        let Some(feature) = new.features.get(id) else {
+            continue;
+        };
+        match &feature.operation {
+            crate::Operation::Sketch { .. } => {
+                classes.solve.insert(*id);
+                classes.geometry.insert(*id);
+            }
+            crate::Operation::Transform { shape, .. } if !plan.dirty.contains(shape) => {
+                classes.placement.insert(*id);
+            }
+            _ => {
+                classes.geometry.insert(*id);
+            }
+        }
+    }
+    for id in old.nodes.keys().chain(new.nodes.keys()) {
+        let (before, after) = (old.nodes.get(id), new.nodes.get(id));
+        if before != after {
+            classes.delivery.insert(*id);
+        }
+        let bound = after.and_then(|node| node.feature);
+        let acceptance = |project: &Project| {
+            project
+                .acceptance
+                .as_ref()
+                .and_then(|a| a.nodes.get(id).cloned())
+        };
+        if before != after
+            || bound.is_some_and(|feature| plan.dirty.contains(&feature))
+            || acceptance(old) != acceptance(new)
+            || old.precision != new.precision
+        {
+            classes.evidence.insert(*id);
+        }
+    }
+    classes
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

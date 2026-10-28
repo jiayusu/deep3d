@@ -161,6 +161,25 @@ impl Project {
     }
 
     fn resolve_scalar(&self, expression: &ScalarExpr, unit: ScalarUnit) -> Result<f64> {
+        if let ScalarExpr::Linear { terms, offset } = expression {
+            if terms.is_empty() || terms.len() > 16 {
+                return Err(CoreError::new(
+                    "SCHEMA_INVALID",
+                    "Linear expression needs 1..16 parameter terms",
+                ));
+            }
+            let mut total = self.resolve_scalar(
+                &ScalarExpr::Literal {
+                    value: offset.clone(),
+                },
+                unit,
+            )?;
+            for term in terms {
+                total += self
+                    .resolve_scalar(&ScalarExpr::parameter(term.parameter_id, term.scale), unit)?;
+            }
+            return finite(total, "resolved linear expression");
+        }
         let (value, scale) = match expression {
             ScalarExpr::Literal { value } => (value, 1.0),
             ScalarExpr::Parameter {
@@ -175,6 +194,7 @@ impl Project {
                 })?;
                 (&parameter.value, finite(*scale, "parameter scale")?)
             }
+            ScalarExpr::Linear { .. } => unreachable!("linear expressions resolve above"),
         };
         if value.unit() != unit {
             return Err(CoreError::new(

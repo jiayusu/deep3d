@@ -48,8 +48,25 @@ impl ScalarValue {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ScalarExpr {
-    Literal { value: ScalarValue },
-    Parameter { parameter_id: Uuid, scale: f64 },
+    Literal {
+        value: ScalarValue,
+    },
+    Parameter {
+        parameter_id: Uuid,
+        scale: f64,
+    },
+    /// `offset + sum(scale * parameter)`; every term shares the offset's unit.
+    Linear {
+        terms: Vec<LinearTerm>,
+        offset: ScalarValue,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LinearTerm {
+    pub parameter_id: Uuid,
+    pub scale: f64,
 }
 
 impl ScalarExpr {
@@ -76,6 +93,7 @@ impl ScalarExpr {
         match self {
             Self::Literal { .. } => BTreeSet::new(),
             Self::Parameter { parameter_id, .. } => BTreeSet::from([*parameter_id]),
+            Self::Linear { terms, .. } => terms.iter().map(|term| term.parameter_id).collect(),
         }
     }
 }
@@ -208,6 +226,13 @@ pub enum EdgeSelector {
         coordinate: ScalarExpr,
         expected_count: u32,
     },
+    /// Straight edges parallel to `direction` that lie in the plane `axis = coordinate`.
+    LineParallelInPlane {
+        direction: [f64; 3],
+        axis: Axis,
+        coordinate: ScalarExpr,
+        expected_count: u32,
+    },
 }
 
 impl EdgeSelector {
@@ -216,13 +241,16 @@ impl EdgeSelector {
             Self::AllEdges { expected_count }
             | Self::LineParallel { expected_count, .. }
             | Self::Plane { expected_count, .. }
-            | Self::Circle { expected_count, .. } => *expected_count,
+            | Self::Circle { expected_count, .. }
+            | Self::LineParallelInPlane { expected_count, .. } => *expected_count,
         }
     }
 
     pub(crate) fn expressions(&self) -> Vec<&ScalarExpr> {
         match self {
-            Self::Plane { coordinate, .. } => vec![coordinate],
+            Self::Plane { coordinate, .. } | Self::LineParallelInPlane { coordinate, .. } => {
+                vec![coordinate]
+            }
             Self::Circle {
                 radius, coordinate, ..
             } => vec![radius, coordinate],

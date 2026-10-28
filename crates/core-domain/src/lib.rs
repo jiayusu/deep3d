@@ -10,7 +10,9 @@ mod transaction;
 pub mod u64_string;
 mod validation;
 
-pub use invalidation::{changed_features, invalidation_plan, DependencyIndex, InvalidationPlan};
+pub use invalidation::{
+    changed_features, classify, invalidation_plan, ChangeClasses, DependencyIndex, InvalidationPlan,
+};
 pub use model::*;
 pub use sketch::*;
 pub use transaction::{apply_transaction, dirty_features};

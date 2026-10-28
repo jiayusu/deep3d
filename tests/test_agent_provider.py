@@ -71,8 +71,13 @@ def complete(provider):
 
 @pytest.mark.parametrize(
     "base_path,expected_path",
-    [("", "/v1/messages"), ("/", "/v1/messages"), ("/v1", "/v1/messages"),
-     ("/proxy/v1/", "/proxy/v1/messages"), ("/v1/messages", "/v1/messages")],
+    [
+        ("", "/v1/messages"),
+        ("/", "/v1/messages"),
+        ("/v1", "/v1/messages"),
+        ("/proxy/v1/", "/proxy/v1/messages"),
+        ("/v1/messages", "/v1/messages"),
+    ],
 )
 def test_request_and_tool_response(server, base_path, expected_path):
     provider = AnthropicProvider(MODEL, server["url"] + base_path, TOKEN)
@@ -102,9 +107,15 @@ def test_environment_and_text_response(monkeypatch, server):
 
 @pytest.mark.parametrize(
     "status,code",
-    [(401, "PROVIDER_AUTH"), (403, "PROVIDER_AUTH"), (429, "PROVIDER_RATE_LIMIT"),
-     (503, "PROVIDER_UNAVAILABLE"), (408, "PROVIDER_UNAVAILABLE"),
-     (400, "PROVIDER_REQUEST"), (302, "PROVIDER_PROTOCOL")],
+    [
+        (401, "PROVIDER_AUTH"),
+        (403, "PROVIDER_AUTH"),
+        (429, "PROVIDER_RATE_LIMIT"),
+        (503, "PROVIDER_UNAVAILABLE"),
+        (408, "PROVIDER_UNAVAILABLE"),
+        (400, "PROVIDER_REQUEST"),
+        (302, "PROVIDER_PROTOCOL"),
+    ],
 )
 def test_error_bodies_never_leak_and_redirect_is_not_followed(server, status, code):
     server["status"] = status
@@ -119,9 +130,18 @@ def test_error_bodies_never_leak_and_redirect_is_not_followed(server, status, co
 
 @pytest.mark.parametrize(
     "url",
-    ["http://example.com", "https://user:password@example.com", "https://example.com?token=secret",
-     "https://example.com/#secret", "https://example.com:99999", "https://example.com\n/",
-     "file:///secret", "//example.com", "https://", "https://example.com:bad"],
+    [
+        "http://example.com",
+        "https://user:password@example.com",
+        "https://example.com?token=secret",
+        "https://example.com/#secret",
+        "https://example.com:99999",
+        "https://example.com\n/",
+        "file:///secret",
+        "//example.com",
+        "https://",
+        "https://example.com:bad",
+    ],
 )
 def test_invalid_endpoints_are_redacted(url):
     with pytest.raises(ProviderError) as failure:
@@ -189,8 +209,13 @@ def test_malformed_tool_fields_are_rejected(server, change):
 
 @pytest.mark.parametrize(
     "body",
-    [b'{} garbage', b'{"content":[],"content":[]}',
-     b'{"content":[],"value":NaN}', b'{"content":[],"value":1e999}', b'\xff'],
+    [
+        b"{} garbage",
+        b'{"content":[],"content":[]}',
+        b'{"content":[],"value":NaN}',
+        b'{"content":[],"value":1e999}',
+        b"\xff",
+    ],
 )
 def test_non_json_duplicate_or_nonfinite_response(server, body):
     server["body"] = body

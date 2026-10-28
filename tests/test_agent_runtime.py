@@ -177,11 +177,22 @@ def test_scripted_model_repairs_goal_mismatch_then_delivers_real_step(binary, tm
     report_file = tmp_path / "delivery-verification.json"
     process = subprocess.run(
         [
-            sys.executable, "-m", "deep3d_cad.worker", "verify-step", "--shape", str(delivery),
-            "--spec", str(spec_file), "--precision", str(precision_file),
-            "--report", str(report_file),
+            sys.executable,
+            "-m",
+            "deep3d_cad.worker",
+            "verify-step",
+            "--shape",
+            str(delivery),
+            "--spec",
+            str(spec_file),
+            "--precision",
+            str(precision_file),
+            "--report",
+            str(report_file),
         ],
-        check=False, capture_output=True, timeout=120,
+        check=False,
+        capture_output=True,
+        timeout=120,
     )
     report = json.loads(report_file.read_text(encoding="utf-8"))
     assert process.returncode == 0, report
@@ -218,20 +229,25 @@ def test_real_geometry_rejection_cannot_be_accepted_or_change_source(binary, tmp
     project = new_project(binary, tmp_path)
     shown = cli(binary, "show", "--project", project)["snapshot"]
     feature = next(
-        copy.deepcopy(item) for item in shown["project"]["features"].values()
+        copy.deepcopy(item)
+        for item in shown["project"]["features"].values()
         if item["name"] == "bolt_hole_0_profile"
     )
-    feature["operation"]["radius"] = {
-        "kind": "literal", "value": {"kind": "length_mm", "value": 5}
-    }
+    feature["operation"]["radius"] = {"kind": "literal", "value": {"kind": "length_mm", "value": 5}}
     transaction_file = tmp_path / "wrong-feature.json"
-    transaction_file.write_text(json.dumps({
-        "id": str(uuid4()), "schema_version": "deep3d.transaction/1",
-        "base_revision": shown["head"]["revision_id"],
-        "expected_generation": shown["head"]["generation"],
-        "message": "Model a wrong hole while leaving the independent design goal unchanged",
-        "commands": [{"op": "feature.replace", "feature": feature}],
-    }), encoding="utf-8")
+    transaction_file.write_text(
+        json.dumps(
+            {
+                "id": str(uuid4()),
+                "schema_version": "deep3d.transaction/1",
+                "base_revision": shown["head"]["revision_id"],
+                "expected_generation": shown["head"]["generation"],
+                "message": "Model a wrong hole while leaving the independent design goal unchanged",
+                "commands": [{"op": "feature.replace", "feature": feature}],
+            }
+        ),
+        encoding="utf-8",
+    )
     cli(binary, "apply", "--project", project, "--transaction", transaction_file)
     before = project.read_bytes()
     run_dir = tmp_path / "run"
@@ -273,9 +289,12 @@ def test_provider_failure_resumes_verified_candidate_and_completion_is_idempoten
     assert state(run_dir)["geometry_jobs"] == 1
     accepted = project.read_bytes()
     no_more_calls = ScriptedProvider()
-    assert resume_agent(
-        run_dir=run_dir, binary=binary, python=Path(sys.executable), provider=no_more_calls
-    ) == result
+    assert (
+        resume_agent(
+            run_dir=run_dir, binary=binary, python=Path(sys.executable), provider=no_more_calls
+        )
+        == result
+    )
     assert not no_more_calls.requests
     assert project.read_bytes() == accepted
     assert len(cli(binary, "history", "--project", project)) == 2
@@ -348,7 +367,8 @@ def test_checkpoint_recovery_reuses_geometry_and_committed_adoption(
     # replaying adoption finds its committed transaction instead of appending a revision.
     resumed_provider = (
         ScriptedProvider(tool("accept_candidate", {"attempt": 1}))
-        if event == "candidate_verified" else ScriptedProvider()
+        if event == "candidate_verified"
+        else ScriptedProvider()
     )
     result = resume_agent(
         run_dir=run_dir, binary=binary, python=Path(sys.executable), provider=resumed_provider
@@ -362,9 +382,7 @@ def test_checkpoint_recovery_reuses_geometry_and_committed_adoption(
         assert not resumed_provider.requests
 
 
-@pytest.mark.parametrize(
-    "code", ["KERNEL_TIMEOUT", "KERNEL_PROTOCOL", "COMMIT_DURABILITY_UNKNOWN"]
-)
+@pytest.mark.parametrize("code", ["KERNEL_TIMEOUT", "KERNEL_PROTOCOL", "COMMIT_DURABILITY_UNKNOWN"])
 def test_lost_native_adoption_reply_is_resumed_without_more_model_work(
     binary, tmp_path, monkeypatch, code
 ):
@@ -428,6 +446,7 @@ def test_completed_resume_recovers_delivery_without_model_or_revision_changes(
     else:
         delivery.write_bytes(b"damaged STEP, not verified geometry")
     if damage == "interrupted_repair":
+
         class SimulatedProcessDeath(BaseException):
             pass
 
@@ -444,7 +463,9 @@ def test_completed_resume_recovers_delivery_without_model_or_revision_changes(
             )
             with pytest.raises(SimulatedProcessDeath):
                 resume_agent(
-                    run_dir=run_dir, binary=binary, python=Path(sys.executable),
+                    run_dir=run_dir,
+                    binary=binary,
+                    python=Path(sys.executable),
                     provider=ScriptedProvider(),
                 )
         assert state(run_dir)["status"] == "delivering"
@@ -466,15 +487,18 @@ def test_completed_resume_recovers_delivery_without_model_or_revision_changes(
         assert quarantined[0].read_bytes() == b"damaged STEP, not verified geometry"
 
 
-@pytest.mark.parametrize("edit", [
-    {"preserve_other_parameters": False},
-    {"set_parameters_mm": {"thickness_mm": True}},
-    {"set_parameters_mm": {"thickness_mm": float("nan")}},
-    {"set_parameters_mm": {"tolerance_mm": 1}},
-    {"set_parameters_mm": {}},
-    {"schema_version": "deep3d.agent-goal/999"},
-    {"extra": "model cannot add authority"},
-])
+@pytest.mark.parametrize(
+    "edit",
+    [
+        {"preserve_other_parameters": False},
+        {"set_parameters_mm": {"thickness_mm": True}},
+        {"set_parameters_mm": {"thickness_mm": float("nan")}},
+        {"set_parameters_mm": {"tolerance_mm": 1}},
+        {"set_parameters_mm": {}},
+        {"schema_version": "deep3d.agent-goal/999"},
+        {"extra": "model cannot add authority"},
+    ],
+)
 def test_goal_contract_rejects_changes_to_scope_and_nonfinite_dimensions(edit):
     with pytest.raises(AgentError) as failure:
         validate_goal({**copy.deepcopy(GOAL), **edit})
