@@ -172,7 +172,7 @@ CHANGES = {
     },
     "M06": {
         "commands": lambda b: [set_param(b, "bolt_pitch_diameter", 76)],
-        "acceptance": None,
+        "acceptance": accept(seeds.c05_expect, pitch=76),
         "probes": outside(*(polar(38, 45 * k, 5) for k in range(8)))
         + inside(*(polar(33.5, 45 * k, 5) for k in range(8))),
     },
@@ -250,7 +250,9 @@ CHANGES = {
     },
     "M18": {
         "commands": lambda b: [set_param(b, "hole_diameter", 60)],
-        "acceptance": accept(seeds.c01_expect, hd=60),
+        # The request as stated: 60 mm holes, original centers, inside the
+        # plate, separate, with at least 2 mm of wall.
+        "acceptance": accept(seeds.c01_expect, hd=60, min_wall=2),
     },
     "M19": {
         "commands": lambda b: [{"op": "feature.delete", "id": b.fid("ShaftSection")}],

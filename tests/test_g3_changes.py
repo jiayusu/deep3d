@@ -68,3 +68,34 @@ def test_dangling_reference_is_rejected_and_head_is_kept(runner, tmp_path):
     result = runner.run_case(change("M19"), tmp_path, sys.executable)
     assert result["pass"] and result["outcome"] == "rejected"
     assert result["authoritative_head_unchanged"]
+
+
+def test_misplaced_holes_fail_independent_verification(tmp_path):
+    if not BINARY.is_file():
+        pytest.skip("Build Rust CLI for native verification")
+    seeds = load("g3_seeds")
+    seed = seeds.SEEDS["C01"]()
+    project = seed.project()
+    # Geometry keeps x=+/-25; the requirement says +/-26 with the same volume.
+    node = next(iter(project["acceptance"]["nodes"].values()))
+    node["axial_holes"]["centers_mm"] = [
+        [sx * 26, sy * 15] for sx, sy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]
+    ]
+    spec = tmp_path / "spec.json"
+    spec.write_text(json.dumps(project), encoding="utf-8")
+    changes = load("g3_changes")
+    changes.deep3d("import", "--project", tmp_path / "p.deep3d", "--spec", spec)
+    with pytest.raises(changes.CommandFailed):
+        changes.deep3d(
+            "evaluate",
+            "--project",
+            tmp_path / "p.deep3d",
+            "--python",
+            sys.executable,
+            "--out",
+            tmp_path / "out",
+        )
+    report = json.loads((tmp_path / "out/verify-brep.json").read_text())
+    failed = {c["id"].split(".", 1)[1] for c in report["checks"] if c["status"] == "fail"}
+    assert {"axial_hole.0", "axial_hole.1", "axial_hole.2", "axial_hole.3"} <= failed
+    assert "volume" not in failed

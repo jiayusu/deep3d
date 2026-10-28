@@ -138,6 +138,7 @@ fn generic_parameter_tasks_encode_independent_optional_acceptance() {
                 solid_count: 1,
                 volume_mm3: Some(1200.0),
                 bounds_mm: None,
+                axial_holes: None,
             },
         )]
         .into(),
@@ -178,6 +179,7 @@ fn generic_goal_is_immutable_and_survives_claim_and_heartbeat() {
                 solid_count: 1,
                 volume_mm3: Some(1200.0),
                 bounds_mm: Some([0.0, 0.0, 0.0, 24.0, 10.0, 5.0]),
+                axial_holes: None,
             },
         )]
         .into(),

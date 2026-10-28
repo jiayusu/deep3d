@@ -55,6 +55,7 @@ fn definition() -> GoalDefinition {
                 solid_count:1,
                 volume_mm3:Some(1200.0),
                 bounds_mm:Some([0.0,0.0,0.0,24.0,10.0,5.0]),
+                axial_holes:None,
             },
         )].into()),
         "precision":PrecisionProfile::default(),

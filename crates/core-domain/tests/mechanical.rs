@@ -82,6 +82,7 @@ fn cuboid() -> Project {
                 solid_count: 1,
                 volume_mm3: Some(24.0),
                 bounds_mm: Some([-1.0, -1.5, 0.0, 1.0, 1.5, 4.0]),
+                axial_holes: None,
             },
         )])),
     )

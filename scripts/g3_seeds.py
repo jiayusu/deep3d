@@ -167,12 +167,21 @@ class Builder:
 # Closed-form acceptance -----------------------------------------------------
 
 
-def c01_expect(b, w=80, d=50, t=8, hd=6, hx=25, hy=15):
-    b.expect(
-        "mounting_plate",
-        w * d * t - 4 * PI * (hd / 2) ** 2 * t,
-        [-w / 2, -d / 2, 0, w / 2, d / 2, t],
-    )
+def c01_expect(b, w=80, d=50, t=8, hd=6, hx=25, hy=15, min_wall=None):
+    """`min_wall` adds the wall requirement; the volume formula assumes separate holes."""
+    volume = w * d * t - 4 * PI * (hd / 2) ** 2 * t
+    b.expect("mounting_plate", volume, [-w / 2, -d / 2, 0, w / 2, d / 2, t])
+    node = b.acceptance["nodes"][b.nid("mounting_plate")]
+    if volume <= 0:
+        del node["volume_mm3"]
+    node["axial_holes"] = {
+        "axis": "z",
+        "diameter_mm": hd,
+        "centers_mm": [[sx * hx, sy * hy] for sx, sy in [(-1, -1), (-1, 1), (1, -1), (1, 1)]],
+        "through": True,
+    }
+    if min_wall is not None:
+        node["axial_holes"]["min_wall_mm"] = min_wall
 
 
 def c02_expect(b, d1=24, d2=16, l1=20, length=40, bore=6):
@@ -191,9 +200,18 @@ def c04_expect(b, c=1.0, hole=10):
     b.expect("chamfered_block", 40 * 40 * 10 - PI * r * r * 10 - chamfer, [-20, -20, 0, 20, 20, 10])
 
 
-def c05_expect(b, count=8, bolt=8):
+def c05_expect(b, count=8, bolt=8, pitch=70):
     volume = PI * 50**2 * 10 - PI * 10**2 * 10 - count * PI * (bolt / 2) ** 2 * 10
     b.expect("bolt_disk", volume, [-50, -50, 0, 50, 50, 10])
+    b.acceptance["nodes"][b.nid("bolt_disk")]["axial_holes"] = {
+        "axis": "z",
+        "diameter_mm": bolt,
+        "centers_mm": [
+            [pitch / 2 * math.cos(2 * PI * k / count), pitch / 2 * math.sin(2 * PI * k / count)]
+            for k in range(count)
+        ],
+        "through": True,
+    }
 
 
 def c06_expect(b, count=5, pitch=10, height=15):

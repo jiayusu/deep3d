@@ -429,6 +429,22 @@ pub struct NodeAcceptance {
     /// [xmin, ymin, zmin, xmax, ymax, zmax], in global mm coordinates.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bounds_mm: Option<[f64; 6]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub axial_holes: Option<AxialHoles>,
+}
+
+/// Required cylindrical holes along a global axis (currently `z`), measured on
+/// the delivered solid. Centers are in the plane normal to the axis.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AxialHoles {
+    pub axis: Axis,
+    pub diameter_mm: f64,
+    pub centers_mm: Vec<[f64; 2]>,
+    pub through: bool,
+    /// Smallest material wall between holes and to the outer bounds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_wall_mm: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

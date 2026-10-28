@@ -109,3 +109,49 @@ fn linear_expressions_sum_parameters_and_track_every_term() {
     *offset = ScalarValue::AngleRad(0.0);
     assert_eq!(wrong.validate().unwrap_err().code, "TYPE_MISMATCH");
 }
+
+fn holes(diameter: f64, wall: Option<f64>) -> NodeAcceptance {
+    NodeAcceptance {
+        solid_count: 1,
+        volume_mm3: None,
+        bounds_mm: Some([-40.0, -25.0, 0.0, 40.0, 25.0, 8.0]),
+        axial_holes: Some(AxialHoles {
+            axis: Axis::Z,
+            diameter_mm: diameter,
+            centers_mm: vec![[-25.0, -15.0], [-25.0, 15.0], [25.0, -15.0], [25.0, 15.0]],
+            through: true,
+            min_wall_mm: wall,
+        }),
+    }
+}
+
+#[test]
+fn consistent_hole_requirements_are_accepted() {
+    holes(6.0, Some(2.0)).validate().unwrap();
+    // Centers sit 10 mm from the long edges: 16 mm holes leave exactly 2 mm.
+    holes(16.0, Some(2.0)).validate().unwrap();
+    let error = holes(17.0, Some(2.0)).validate().unwrap_err();
+    assert!(error.message.contains("minimum_wall_violation[0,outer]"));
+}
+
+#[test]
+fn contradictory_hole_requirements_name_their_geometric_witnesses() {
+    let error = holes(60.0, Some(2.0)).validate().unwrap_err();
+    assert_eq!(error.code, "GOAL_CONFLICT");
+    for witness in [
+        "hole_overlap",
+        "hole_outside_stock",
+        "minimum_wall_violation",
+    ] {
+        assert!(
+            error.message.contains(witness),
+            "{witness}: {}",
+            error.message
+        );
+    }
+    let error = holes(29.0, Some(0.0)).validate().unwrap_err();
+    assert!(error.message.contains("hole_outside_stock") && !error.message.contains("overlap"));
+    let mut sideways = holes(6.0, None);
+    sideways.axial_holes.as_mut().unwrap().axis = Axis::X;
+    assert_eq!(sideways.validate().unwrap_err().code, "ACCEPTANCE_INVALID");
+}

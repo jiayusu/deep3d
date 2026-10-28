@@ -25,6 +25,9 @@ impl NodeAcceptance {
                 "Expected volume must be finite and positive",
             ));
         }
+        if let Some(holes) = &self.axial_holes {
+            holes.validate(self.bounds_mm)?;
+        }
         if let Some(bounds) = self.bounds_mm {
             if bounds
                 .iter()
@@ -38,6 +41,89 @@ impl NodeAcceptance {
             }
         }
         Ok(())
+    }
+}
+
+impl AxialHoles {
+    /// Rejects requirements that no solid can satisfy, naming each witness.
+    fn validate(&self, bounds: Option<[f64; 6]>) -> Result<()> {
+        let radius = self.diameter_mm / 2.0;
+        let wall = self.min_wall_mm.unwrap_or(0.0);
+        if self.axis != Axis::Z
+            || !(0.001..=2000.0).contains(&self.diameter_mm)
+            || self.centers_mm.is_empty()
+            || self.centers_mm.len() > 256
+            || self
+                .centers_mm
+                .iter()
+                .flatten()
+                .any(|v| !v.is_finite() || v.abs() > 10000.0)
+            || !wall.is_finite()
+            || wall < 0.0
+        {
+            return Err(CoreError::new(
+                "ACCEPTANCE_INVALID",
+                "Axial holes need axis z, a positive diameter, 1..256 finite centers and a nonnegative wall",
+            ));
+        }
+        let Some(bounds) = bounds else {
+            return Err(CoreError::new(
+                "ACCEPTANCE_INVALID",
+                "Axial holes are judged against the expected outer bounds",
+            ));
+        };
+        let mut witnesses = Vec::new();
+        for (i, a) in self.centers_mm.iter().enumerate() {
+            for (j, b) in self.centers_mm.iter().enumerate().skip(i + 1) {
+                let gap = (a[0] - b[0]).hypot(a[1] - b[1]) - self.diameter_mm;
+                if gap < 0.0 {
+                    witnesses.push(format!("hole_overlap[{i},{j}]: wall {gap:.6} mm"));
+                } else if gap < wall {
+                    witnesses.push(format!(
+                        "minimum_wall_violation[{i},{j}]: wall {gap:.6} mm < {wall} mm"
+                    ));
+                }
+            }
+            let edge = [
+                a[0] - bounds[0],
+                bounds[3] - a[0],
+                a[1] - bounds[1],
+                bounds[4] - a[1],
+            ]
+            .into_iter()
+            .fold(f64::INFINITY, f64::min)
+                - radius;
+            if edge < 0.0 {
+                witnesses.push(format!(
+                    "hole_outside_stock[{i}]: exceeds bounds by {:.6} mm",
+                    -edge
+                ));
+            } else if edge < wall {
+                witnesses.push(format!(
+                    "minimum_wall_violation[{i},outer]: wall {edge:.6} mm < {wall} mm"
+                ));
+            }
+        }
+        if wall > 0.0
+            && witnesses
+                .iter()
+                .any(|w| w.starts_with("hole_overlap") || w.starts_with("hole_outside"))
+        {
+            witnesses.push(format!(
+                "minimum_wall_violation: required {wall} mm cannot hold"
+            ));
+        }
+        if witnesses.is_empty() {
+            Ok(())
+        } else {
+            Err(CoreError::new(
+                "GOAL_CONFLICT",
+                format!(
+                    "Axial hole requirements contradict each other: {}",
+                    witnesses.join("; ")
+                ),
+            ))
+        }
     }
 }
 

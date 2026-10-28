@@ -22,8 +22,30 @@ def _finite(value):
 
 
 def _node_goal(value):
-    if not isinstance(value, dict) or set(value) - {"solid_count", "volume_mm3", "bounds_mm"}:
+    if not isinstance(value, dict) or set(value) - {
+        "solid_count",
+        "volume_mm3",
+        "bounds_mm",
+        "axial_holes",
+    }:
         raise CadError("SCHEMA_INVALID", "Unexpected node acceptance fields")
+    holes = value.get("axial_holes")
+    if holes is not None:
+        if (
+            not isinstance(holes, dict)
+            or set(holes) - {"axis", "diameter_mm", "centers_mm", "through", "min_wall_mm"}
+            or holes.get("axis") != "z"
+            or not 0 < _finite(holes.get("diameter_mm"))
+            or type(holes.get("through")) is not bool
+            or not isinstance(holes.get("centers_mm"), list)
+            or not 1 <= len(holes["centers_mm"]) <= 256
+            or value.get("bounds_mm") is None
+        ):
+            raise CadError("SCHEMA_INVALID", "Invalid axial hole requirement")
+        for center in holes["centers_mm"]:
+            if not isinstance(center, list) or len(center) != 2:
+                raise CadError("SCHEMA_INVALID", "Hole centers are [x, y] pairs")
+            [_finite(v) for v in center]
     if type(value.get("solid_count")) is not int or not 1 <= value["solid_count"] <= 4096:
         raise CadError("SCHEMA_INVALID", "Acceptance requires 1..4096 solids")
     if value.get("volume_mm3") is None and value.get("bounds_mm") is None:
@@ -78,6 +100,67 @@ def _shapes(shape, kind):
     mapped = IndexedMap_TopoDS_Shape_TopTools_ShapeMapHasher()
     TopExp.MapShapes_s(shape, kind, mapped)
     return [mapped.FindKey(i) for i in range(1, mapped.Extent() + 1)]
+
+
+def axial_holes(shape, expected: dict, bounds: list[float], tolerance: float) -> dict:
+    """Measure cylindrical hole faces along z on the actual reloaded solid."""
+    from OCP.Bnd import Bnd_Box
+    from OCP.BRepAdaptor import BRepAdaptor_Surface
+    from OCP.BRepBndLib import BRepBndLib
+    from OCP.BRepClass3d import BRepClass3d_SolidClassifier
+    from OCP.GeomAbs import GeomAbs_Cylinder
+    from OCP.gp import gp_Pnt
+    from OCP.TopAbs import TopAbs_FACE, TopAbs_IN
+    from OCP.TopoDS import TopoDS
+
+    radius = expected["diameter_mm"] / 2
+    found: list[dict] = []
+    for item in _shapes(shape, TopAbs_FACE):
+        face = TopoDS.Face(item)
+        surface = BRepAdaptor_Surface(face)
+        if surface.GetType() != GeomAbs_Cylinder:
+            continue
+        cylinder = surface.Cylinder()
+        direction = cylinder.Axis().Direction()
+        if abs(abs(direction.Z()) - 1) > 1e-9 or abs(cylinder.Radius() - radius) > tolerance:
+            continue
+        location = cylinder.Axis().Location()
+        box = Bnd_Box()
+        BRepBndLib.AddOptimal_s(face, box, False, False)
+        span = (surface.LastUParameter() - surface.FirstUParameter()) / (2 * math.pi)
+        center = [location.X(), location.Y()]
+        match = next((h for h in found if math.dist(h["center_mm"], center) <= tolerance), None)
+        if match is None:
+            match = {"center_mm": center, "turns": 0.0, "z_mm": [math.inf, -math.inf]}
+            found.append(match)
+        match["turns"] += span
+        match["z_mm"] = [
+            min(match["z_mm"][0], box.CornerMin().Z()),
+            max(match["z_mm"][1], box.CornerMax().Z()),
+        ]
+    results = []
+    for wanted in expected["centers_mm"]:
+        hole = next((h for h in found if math.dist(h["center_mm"], wanted) <= tolerance), None)
+        complete = hole is not None and abs(hole["turns"] - 1) <= 1e-6
+        through = hole is not None and (
+            hole["z_mm"][0] - bounds[2] <= tolerance and bounds[5] - hole["z_mm"][1] <= tolerance
+        )
+        middle = (bounds[2] + bounds[5]) / 2
+        empty = (
+            BRepClass3d_SolidClassifier(shape, gp_Pnt(wanted[0], wanted[1], middle), 1e-7).State()
+            != TopAbs_IN
+        )
+        results.append(
+            {
+                "center_mm": wanted,
+                "found": hole is not None,
+                "complete_cylinder": complete,
+                "through": through,
+                "axis_is_empty": empty,
+                "pass": complete and empty and (through or not expected["through"]),
+            }
+        )
+    return {"holes": results, "cylinders_found": len(found)}
 
 
 def measurements(shape) -> dict:
@@ -224,6 +307,17 @@ def verify(directory: Path, stage: str) -> dict:
                     actual,
                     wanted,
                 )
+        if expected.get("axial_holes") is not None:
+            measured = axial_holes(shape, expected["axial_holes"], expected["bounds_mm"], limit)
+            values["axial_holes"] = measured
+            for index, hole in enumerate(measured["holes"]):
+                check(f"{node}.axial_hole.{index}", hole["pass"], hole, expected["axial_holes"])
+            check(
+                f"{node}.axial_hole.count",
+                measured["cylinders_found"] == len(expected["axial_holes"]["centers_mm"]),
+                measured["cylinders_found"],
+                len(expected["axial_holes"]["centers_mm"]),
+            )
         return values
 
     parts = [inspect(node, nodes[node], goal["nodes"][node]) for node in sorted(nodes)]
