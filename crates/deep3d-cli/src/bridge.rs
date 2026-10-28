@@ -217,6 +217,8 @@ pub fn evaluate(
     python: Option<&Path>,
     output: &Path,
     timeout: u64,
+    cache_dir: Option<&Path>,
+    force_rebuild: bool,
 ) -> Result<Value> {
     if output.exists() {
         return Err(CoreError::new(
@@ -244,6 +246,12 @@ pub fn evaluate(
         .stdin(Stdio::null())
         .stdout(log.try_clone().map_err(io_error)?)
         .stderr(log);
+    if let Some(cache) = cache_dir {
+        command.arg("--cache-dir").arg(std::path::absolute(cache).map_err(io_error)?);
+    }
+    if force_rebuild {
+        command.arg("--force-rebuild");
+    }
     #[cfg(windows)]
     {
         use std::os::windows::process::CommandExt;

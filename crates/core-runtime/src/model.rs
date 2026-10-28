@@ -1,3 +1,4 @@
+use crate::RunBinding;
 use core_domain::{canonical_bytes, digest_bytes, CoreError, GeneralAcceptance, Result};
 use core_storage::HeadToken;
 use serde::{Deserialize, Serialize};
@@ -34,6 +35,8 @@ pub struct RunSpec {
     pub submission_sha256: String,
     pub source: ArtifactSource,
     pub tasks: Vec<TaskSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authority: Option<RunBinding>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +47,8 @@ pub struct SubmitRequest {
     pub project: String,
     pub expected_head: HeadToken,
     pub tasks: Vec<TaskSpec>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authority: Option<RunBinding>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -238,5 +243,28 @@ pub fn validate_spec(spec: &RunSpec) -> Result<()> {
             "Invalid frozen run definition",
         ));
     }
-    validate_tasks(&spec.tasks)
+    validate_tasks(&spec.tasks)?;
+    if let Some(binding) = &spec.authority {
+        if binding.goal_revision_id.is_nil()
+            || binding.expected_public_commit.is_some_and(|id| id.is_nil())
+            || binding.expected_public_generation > i64::MAX as u64
+            || binding.expected_public_commit.is_none() != (binding.expected_public_generation == 0)
+            || !valid_key(&binding.publish_task)
+            || !spec
+                .tasks
+                .iter()
+                .any(|task| task.key == binding.publish_task)
+            || spec.tasks.iter().any(|task| {
+                task.depends_on
+                    .iter()
+                    .any(|key| key == &binding.publish_task)
+            })
+        {
+            return Err(CoreError::new(
+                "PLAN_INVALID",
+                "Bind one terminal publish task and a precise goal/public base",
+            ));
+        }
+    }
+    Ok(())
 }

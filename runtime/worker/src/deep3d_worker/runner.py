@@ -412,6 +412,8 @@ class TaskRunner:
                             str(output),
                             "--timeout",
                             str(timeout),
+                            "--cache-dir",
+                            str(self.root / "runs" / ".action-cache"),
                         ],
                         keeper,
                         directory,

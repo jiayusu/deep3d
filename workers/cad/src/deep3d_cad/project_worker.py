@@ -213,12 +213,27 @@ def _artifacts(directory: Path) -> list[dict]:
     return result
 
 
-def evaluate_plan(plan: dict, directory: Path, *, timeout: float = 120) -> dict:
+def evaluate_plan(
+    plan: dict,
+    directory: Path,
+    *,
+    timeout: float = 120,
+    cache_dir: Path | None = None,
+    force_rebuild: bool = False,
+) -> dict:
     """Materialize an input snapshot into a new directory, then verify reloaded B-Reps."""
     plan, goal, precision = validate_plan(plan)
     if isinstance(timeout, bool) or not math.isfinite(timeout) or not 0 < timeout <= 600:
         raise CadError("PARAMETER_INVALID", "Worker timeout requires (0, 600] seconds")
+    if type(force_rebuild) is not bool:
+        raise CadError("PARAMETER_INVALID", "force_rebuild must be a boolean")
     directory = directory.resolve()
+    if cache_dir is not None:
+        cache_dir = Path(cache_dir).resolve()
+        if directory.is_relative_to(cache_dir) or cache_dir.is_relative_to(directory):
+            raise CadError(
+                "CACHE_PATH_INVALID", "Cache and evaluation directories must be separate"
+            )
     try:
         directory.mkdir(parents=True, exist_ok=False)
     except FileExistsError as exc:
@@ -239,12 +254,21 @@ def evaluate_plan(plan: dict, directory: Path, *, timeout: float = 120) -> dict:
     }
     operations = []
     try:
+        from OCP.BRepBuilderAPI import BRepBuilderAPI_Copy
+
+        from .action_cache import ActionCache, action_contract, geometry_identity
         from .features import execute_feature
         from .kernel import _require_shape, export_step, write_brep
 
         result["environment"] = environment()
         result["environment"]["evaluator_source_sha256"] = result["evaluator_source_sha256"]
-        for module in ("features.py", "sketch.py", "assembly_io.py", "kernel.py"):
+        for module in (
+            "features.py",
+            "sketch.py",
+            "assembly_io.py",
+            "kernel.py",
+            "action_cache.py",
+        ):
             result["environment"][module[:-3] + "_source_sha256"] = file_digest(
                 Path(__file__).with_name(module)
             )
@@ -255,23 +279,78 @@ def evaluate_plan(plan: dict, directory: Path, *, timeout: float = 120) -> dict:
         shapes = {}
         feature_directory = directory / "features"
         feature_directory.mkdir()
+        cache = None
+        pending_cache = []
+        if cache_dir is not None:
+            identity = geometry_identity()
+            cache = ActionCache(cache_dir, identity)
+            write_json(directory / "cache-identity.json", identity)
+            result["environment"]["geometry_engine_sha256"] = cache.engine_sha256
+        execution = {
+            "schema_version": "deep3d.feature-execution/1",
+            "cache_enabled": cache is not None,
+            "force_rebuild": force_rebuild,
+            "engine_sha256": cache.engine_sha256 if cache else None,
+            "executed": [],
+            "reused": [],
+            "actions": {},
+        }
+        result["execution"] = execution
         for feature in plan["features"]:
             parameters = feature["parameters"]
             op = feature["op"]
             diagnostic = {"feature_id": feature["id"], "op": op, "parameters": parameters}
-            if op == "profile.sketch@1":
-                from .sketch import build_sketch
-
-                shape, diagnostic["sketch"] = build_sketch(feature["data"]["sketch"], precision)
-            else:
-                shape, diagnostic["kernel"] = execute_feature(feature, shapes, precision)
-            _require_shape(shape, operation=feature["id"])
-            shapes[feature["id"]] = shape
             path = feature_directory / f"{feature['id']}.brep"
-            write_brep(shape, path)
+            inputs = {
+                port: result["feature_outputs"][source]
+                for port, source in feature["inputs"].items()
+            }
+            key = action = restored = None
+            if cache is not None:
+                key, action = action_contract(feature, inputs, precision, cache.engine_sha256)
+                if not force_rebuild:
+                    restored = cache.restore(key, action, path)
+            if restored is not None:
+                shape, digest = restored
+                disposition, reason = "reused", "verified_content_addressed_hit"
+            else:
+                if op == "profile.sketch@1":
+                    from .sketch import build_sketch
+
+                    shape, diagnostic["sketch"] = build_sketch(feature["data"]["sketch"], precision)
+                else:
+                    # Native algorithms receive private topology, not upstream objects.
+                    isolated = {
+                        source: BRepBuilderAPI_Copy(shapes[source], True, False).Shape()
+                        for source in set(feature["inputs"].values())
+                    }
+                    shape, diagnostic["kernel"] = execute_feature(feature, isolated, precision)
+                _require_shape(shape, operation=feature["id"])
+                write_brep(shape, path)
+                digest = file_digest(path)
+                disposition = "executed"
+                reason = (
+                    "force_rebuild"
+                    if force_rebuild
+                    else "cache_miss"
+                    if cache
+                    else "cache_disabled"
+                )
+                if cache is not None and not force_rebuild:
+                    pending_cache.append((key, action, path))
+            shapes[feature["id"]] = shape
             if path.stat().st_size > MAX_ARTIFACT_BYTES:
                 raise CadError("RESOURCE_LIMIT", "Feature BREP exceeds 64 MiB")
-            result["feature_outputs"][feature["id"]] = file_digest(path)
+            result["feature_outputs"][feature["id"]] = digest
+            execution[disposition].append(feature["id"])
+            execution["actions"][feature["id"]] = {
+                "action_key": key,
+                "disposition": disposition,
+                "reason": reason,
+                "input_artifacts": inputs,
+                "output_artifact_sha256": digest,
+            }
+            diagnostic["execution"] = execution["actions"][feature["id"]]
             operations.append(diagnostic)
 
         if mechanical:
@@ -306,6 +385,7 @@ def evaluate_plan(plan: dict, directory: Path, *, timeout: float = 120) -> dict:
             "worker_pid": os.getpid(),
             "environment": result["environment"],
             "operations": operations,
+            "execution": execution,
             "exchange": exchange,
         }
         write_json(directory / "build.json", build)
@@ -340,16 +420,22 @@ def evaluate_plan(plan: dict, directory: Path, *, timeout: float = 120) -> dict:
             if validator != result["stages"]["verify-step"]["validator_source_sha256"]:
                 raise CadError("ENGINE_CHANGED", "Verifier build changed between checks")
             result["environment"]["verifier_source_sha256"] = validator
+            # Only an independently verified candidate may populate new entries.
+            for key, action, path in pending_cache:
+                cache.publish(key, action, path)
         else:
             result["error"] = {
                 "code": "VERIFICATION_REJECTED",
                 "message": "Independent BREP/STEP checks did not pass",
             }
-        result["status"] = "pass" if passed else "fail"
+        write_json(directory / "execution.json", execution)
         result["artifacts"] = _artifacts(directory)
+        result["status"] = "pass" if passed else "fail"
     except CadError as exc:
+        result["status"] = "error"
         result["error"] = exc.to_dict()
     except Exception as exc:
+        result["status"] = "error"
         result["error"] = {
             "code": "WORKER_ERROR",
             "message": str(exc),
@@ -375,9 +461,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plan", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--timeout", type=float, default=120)
+    parser.add_argument("--cache-dir", type=Path)
+    parser.add_argument("--force-rebuild", action="store_true")
     args = parser.parse_args(argv)
     try:
-        result = evaluate_plan(read_json(args.plan), args.out, timeout=args.timeout)
+        result = evaluate_plan(
+            read_json(args.plan),
+            args.out,
+            timeout=args.timeout,
+            cache_dir=args.cache_dir,
+            force_rebuild=args.force_rebuild,
+        )
         print(json.dumps({"status": result["status"], "output": str(args.out.resolve())}))
         return 0 if result["status"] == "pass" else 2
     except CadError as exc:

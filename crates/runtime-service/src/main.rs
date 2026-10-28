@@ -1,4 +1,6 @@
 mod artifacts;
+mod authority_http;
+mod publication;
 
 use axum::{
     body::Bytes,
@@ -47,6 +49,7 @@ struct App {
     operator: Arc<String>,
     worker: Arc<String>,
     slots: Arc<Semaphore>,
+    verifier_python: Arc<PathBuf>,
 }
 
 struct ApiError(CoreError);
@@ -59,7 +62,8 @@ impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let code = match self.0.code.as_str() {
             "UNAUTHORIZED" => StatusCode::UNAUTHORIZED,
-            "RUN_NOT_FOUND" => StatusCode::NOT_FOUND,
+            "RUN_NOT_FOUND" | "PROJECT_NOT_FOUND" | "GOAL_NOT_FOUND" | "COMMIT_NOT_FOUND"
+            | "PLAN_NOT_FOUND" => StatusCode::NOT_FOUND,
             "REVISION_CONFLICT"
             | "IDEMPOTENCY_CONFLICT"
             | "STALE_LEASE"
@@ -67,7 +71,9 @@ impl IntoResponse for ApiError {
             | "CONTROL_CONFLICT"
             | "STALE_EXECUTION_LEASE"
             | "RUN_TERMINAL"
-            | "TASK_ALREADY_COMPLETED" => StatusCode::CONFLICT,
+            | "TASK_ALREADY_COMPLETED" | "GOAL_CONFLICT" | "PUBLIC_HEAD_CONFLICT"
+            | "GOAL_MISMATCH" | "GOAL_UNRESOLVED" | "PROJECT_CONFLICT"
+            | "PUBLICATION_CONFLICT" | "PUBLIC_NOT_READY" => StatusCode::CONFLICT,
             "DATABASE_UNAVAILABLE"
             | "DATABASE_BUSY"
             | "COMMIT_OUTCOME_UNKNOWN"
@@ -171,6 +177,7 @@ async fn submit(
             submission_sha256: digest,
             source,
             tasks: request.tasks,
+            authority: request.authority,
         })
     })
     .await?;
@@ -272,6 +279,7 @@ async fn complete(
     authorize(&app, &headers, true)?;
     let repository = app.repository.clone();
     let root = app.root.clone();
+    let python = app.verifier_python.clone();
     Ok(envelope(
         blocking(&app, move || {
             let digest = request_digest(&request)?;
@@ -295,7 +303,17 @@ async fn complete(
             )?;
             // File verification/copy is outside the DB transaction. This final operation
             // rechecks the complete fencing tuple after pause, cancellation or expiry.
-            repository.complete(&request.lease, &output, &digest)
+            let evidence = if let Some(binding) = &run.spec.authority {
+                if binding.publish_task == request.lease.task_key {
+                    let goal = repository.get_goal(run.spec.project_id, binding.goal_revision_id)?;
+                    Some(publication::verify(&root, &python, &goal, &output)?)
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            repository.complete_with_publication(&request.lease, &output, &digest, evidence.as_ref())
         })
         .await?,
     ))
@@ -397,9 +415,19 @@ async fn execute(cli: Cli) -> Result<()> {
         operator: Arc::new(operator),
         worker: Arc::new(worker),
         slots: Arc::new(Semaphore::new(16)),
+        verifier_python: Arc::new(publication::python()),
     };
     let api = Router::new()
         .route("/health", get(health))
+        .route("/v1/projects", post(authority_http::register))
+        .route("/v1/projects/{id}", get(authority_http::project))
+        .route("/v1/projects/{id}/goals", post(authority_http::update_goal))
+        .route("/v1/projects/{id}/goals/{goal}", get(authority_http::goal))
+        .route("/v1/projects/{id}/plans/{run}", get(authority_http::plan))
+        .route("/v1/projects/{id}/commits/{commit}", get(authority_http::commit))
+        .route("/v1/projects/{id}/public/artifacts/{kind}", get(authority_http::public_artifact))
+        .route("/v1/projects/{id}/commits/{commit}/artifacts/{kind}", get(authority_http::commit_artifact))
+        .route("/v1/projects/{id}/commits/{commit}/evidence/{stage}", get(authority_http::evidence))
         .route("/v1/runs", post(submit))
         .route("/v1/runs/{id}", get(run))
         .route("/v1/runs/{id}/events", get(events))

@@ -7,6 +7,7 @@ use std::{str::FromStr, time::Duration};
 use uuid::Uuid;
 
 const MIGRATION: &str = include_str!("../../../migrations/0001_durable_runtime.sql");
+const AUTHORITY_MIGRATION: &str = include_str!("../../../migrations/0002_project_authority.sql");
 
 #[derive(Clone)]
 pub struct Repository {
@@ -14,11 +15,11 @@ pub struct Repository {
     lease_seconds: i32,
 }
 
-fn error(code: &str, message: &str) -> CoreError {
+pub(crate) fn error(code: &str, message: &str) -> CoreError {
     CoreError::new(code, message)
 }
 
-fn db_error(cause: postgres::Error) -> CoreError {
+pub(crate) fn db_error(cause: postgres::Error) -> CoreError {
     match cause.code().map(|code| code.code()) {
         Some("55P03" | "57014" | "40P01" | "40001") => error(
             "DATABASE_BUSY",
@@ -31,17 +32,17 @@ fn db_error(cause: postgres::Error) -> CoreError {
     }
 }
 
-fn encoded(value: &impl Serialize) -> Result<Value> {
+pub(crate) fn encoded(value: &impl Serialize) -> Result<Value> {
     serde_json::to_value(value)
         .map_err(|_| error("RUNTIME_ENCODING", "Cannot encode runtime contract"))
 }
 
-fn decoded<T: DeserializeOwned>(value: Value) -> Result<T> {
+pub(crate) fn decoded<T: DeserializeOwned>(value: Value) -> Result<T> {
     serde_json::from_value(value)
         .map_err(|_| error("RUNTIME_CORRUPT", "Stored runtime contract is invalid"))
 }
 
-fn commit(transaction: Transaction<'_>) -> Result<()> {
+pub(crate) fn commit(transaction: Transaction<'_>) -> Result<()> {
     transaction.commit().map_err(|_| {
         error(
             "COMMIT_OUTCOME_UNKNOWN",
@@ -51,13 +52,14 @@ fn commit(transaction: Transaction<'_>) -> Result<()> {
 }
 
 fn run_lock(transaction: &mut Transaction<'_>, run_id: Uuid) -> Result<Row> {
+    crate::authority::lock_project_for_run(transaction, run_id)?;
     transaction
         .query_opt("SELECT * FROM runs WHERE run_id=$1 FOR UPDATE", &[&run_id])
         .map_err(db_error)?
         .ok_or_else(|| error("RUN_NOT_FOUND", "Unknown run"))
 }
 
-fn event(
+pub(crate) fn event(
     transaction: &mut Transaction<'_>,
     run_id: Uuid,
     kind: &str,
@@ -339,7 +341,7 @@ impl Repository {
         })
     }
 
-    fn connect(&self) -> Result<Client> {
+    pub(crate) fn connect(&self) -> Result<Client> {
         let mut client = self.config.connect(NoTls).map_err(db_error)?;
         client
             .batch_execute(
@@ -366,28 +368,30 @@ impl Repository {
             )
             .map_err(db_error)?;
         // The migration identity is independent of Windows checkout line endings.
-        let checksum = digest_bytes(MIGRATION.replace("\r\n", "\n").as_bytes());
-        if let Some(row) = transaction
-            .query_opt(
-                "SELECT checksum FROM schema_migrations WHERE version=1",
-                &[],
-            )
-            .map_err(db_error)?
-        {
-            if row.get::<_, String>(0) != checksum {
-                return Err(error(
-                    "MIGRATION_CONFLICT",
-                    "Applied migration checksum does not match",
-                ));
-            }
-        } else {
-            transaction.batch_execute(MIGRATION).map_err(db_error)?;
-            transaction
-                .execute(
-                    "INSERT INTO schema_migrations(version,checksum) VALUES(1,$1)",
-                    &[&checksum],
+        for (version, sql) in [(1_i32, MIGRATION), (2_i32, AUTHORITY_MIGRATION)] {
+            let checksum = digest_bytes(sql.replace("\r\n", "\n").as_bytes());
+            if let Some(row) = transaction
+                .query_opt(
+                    "SELECT checksum FROM schema_migrations WHERE version=$1",
+                    &[&version],
                 )
-                .map_err(db_error)?;
+                .map_err(db_error)?
+            {
+                if row.get::<_, String>(0) != checksum {
+                    return Err(error(
+                        "MIGRATION_CONFLICT",
+                        "Applied migration checksum does not match",
+                    ));
+                }
+            } else {
+                transaction.batch_execute(sql).map_err(db_error)?;
+                transaction
+                    .execute(
+                        "INSERT INTO schema_migrations(version,checksum) VALUES($1,$2)",
+                        &[&version, &checksum],
+                    )
+                    .map_err(db_error)?;
+            }
         }
         commit(transaction)
     }
@@ -420,6 +424,7 @@ impl Repository {
             commit(transaction)?;
             return Ok(result);
         }
+        let plan = crate::authority::prepare_plan(&mut transaction, spec)?;
         transaction.execute(
             "INSERT INTO runs(run_id,spec,spec_sha256,state,control_epoch) VALUES($1,$2,$3,'running',0)",
             &[&spec.run_id, &encoded(spec)?, &digest],
@@ -441,6 +446,9 @@ impl Repository {
                     )
                     .map_err(db_error)?;
             }
+        }
+        if let Some(plan) = plan {
+            crate::authority::insert_plan(&mut transaction, &plan)?;
         }
         event(
             &mut transaction,
@@ -660,6 +668,16 @@ impl Repository {
         output: &TaskOutput,
         digest: &str,
     ) -> Result<TaskOutput> {
+        self.complete_with_publication(token, output, digest, None)
+    }
+
+    pub fn complete_with_publication(
+        &self,
+        token: &LeaseToken,
+        output: &TaskOutput,
+        digest: &str,
+        evidence: Option<&PublicationEvidence>,
+    ) -> Result<TaskOutput> {
         if !valid_hash(digest)
             || output.schema_version != "deep3d.task-output/1"
             || !valid_hash(&output.source.sha256)
@@ -701,6 +719,7 @@ impl Repository {
                 "Output belongs to another project or generation",
             ));
         }
+        crate::authority::publish(&mut transaction, &spec, token, output, evidence)?;
         let output_json = encoded(output)?;
         transaction.execute("UPDATE attempts SET state='succeeded',output=$4,completion_digest=$5,finished_at=clock_timestamp()
             WHERE run_id=$1 AND task_key=$2 AND attempt_id=$3", &[&token.run_id,&token.task_key,&token.attempt_id,&output_json,&digest]).map_err(db_error)?;

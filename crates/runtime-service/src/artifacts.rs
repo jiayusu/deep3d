@@ -37,7 +37,7 @@ pub fn relative_file(root: &Path, name: &str) -> Result<PathBuf> {
     Ok(absolute)
 }
 
-fn read_package(path: &Path) -> Result<Vec<u8>> {
+pub(super) fn read_package(path: &Path) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
     fs::File::open(path)
         .map_err(io)?
@@ -53,7 +53,7 @@ fn read_package(path: &Path) -> Result<Vec<u8>> {
     Ok(bytes)
 }
 
-fn temporary(root: &Path, bytes: &[u8]) -> Result<NamedTempFile> {
+pub(super) fn temporary(root: &Path, bytes: &[u8]) -> Result<NamedTempFile> {
     let objects = root.join("objects");
     fs::create_dir_all(&objects).map_err(io)?;
     let mut file = NamedTempFile::new_in(objects).map_err(io)?;
@@ -103,13 +103,21 @@ pub fn import_native(root: &Path, bytes: &[u8]) -> Result<(uuid::Uuid, ArtifactS
 }
 
 pub fn freeze(root: &Path, request: &SubmitRequest) -> Result<(uuid::Uuid, ArtifactSource)> {
-    let path = relative_file(root, &request.project)?;
+    freeze_reference(root, &request.project, &request.expected_head)
+}
+
+pub fn freeze_reference(
+    root: &Path,
+    project: &str,
+    expected_head: &core_storage::HeadToken,
+) -> Result<(uuid::Uuid, ArtifactSource)> {
+    let path = relative_file(root, project)?;
     // Read one file handle, validate the copy and its requested token, then persist
     // the exact bytes. A concurrent source replacement cannot mix two versions.
     let bytes = read_package(&path)?;
     let file = temporary(root, &bytes)?;
     let snapshot = ProjectStore::open(file.path())?.head()?;
-    if snapshot.head != request.expected_head {
+    if snapshot.head != *expected_head {
         return Err(CoreError::new(
             "REVISION_CONFLICT",
             "Source changed before the run was frozen",

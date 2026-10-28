@@ -49,6 +49,7 @@ fn spec(tasks: Vec<TaskSpec>) -> RunSpec {
             },
         },
         tasks,
+        authority: None,
     }
 }
 

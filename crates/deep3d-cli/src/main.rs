@@ -114,6 +114,12 @@ enum Action {
         out: PathBuf,
         #[arg(long, default_value_t = 120, value_parser = clap::value_parser!(u64).range(1..=600))]
         timeout: u64,
+        /// Reuse immutable Feature BREP actions from this cache directory.
+        #[arg(long)]
+        cache_dir: Option<PathBuf>,
+        /// Bypass cache reads for an independent full rebuild comparison.
+        #[arg(long)]
+        force_rebuild: bool,
     },
     /// Export a verified historical artifact without invoking OCCT or overwriting a file.
     Export {
@@ -287,10 +293,20 @@ fn execute(action: Action) -> Result<Value> {
             python,
             out,
             timeout,
+            cache_dir,
+            force_rebuild,
         } => {
             let store = ProjectStore::open(project)?;
             let current = snapshot(&store, revision)?;
-            bridge::evaluate(&store, &current, python.as_deref(), &out, timeout)
+            bridge::evaluate(
+                &store,
+                &current,
+                python.as_deref(),
+                &out,
+                timeout,
+                cache_dir.as_deref(),
+                force_rebuild,
+            )
         }
         Action::Export {
             project,
